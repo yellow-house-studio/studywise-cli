@@ -8,5 +8,6 @@ rootCommand.AddCommand(AuthCommand.Create());
 rootCommand.AddCommand(WordsCommand.Create());
 rootCommand.AddCommand(ProgressCommand.Create());
 rootCommand.AddCommand(PracticeCommand.Create());
+rootCommand.AddCommand(DoctorCommand.Create());
 
 return await rootCommand.InvokeAsync(args);
