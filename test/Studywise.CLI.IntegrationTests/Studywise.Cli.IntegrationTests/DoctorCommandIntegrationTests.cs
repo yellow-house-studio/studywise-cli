@@ -1,30 +1,45 @@
-using System.Diagnostics;
 using System.Text.Json;
+using Studywise.Cli.Diagnostics;
+using Studywise.Cli.Diagnostics.Checks;
+using Studywise.Cli.Diagnostics.Formatting;
+using WireMock.RequestBuilders;
+using WireMock.ResponseBuilders;
+using WireMock.Server;
 
 namespace Studywise.CLI.IntegrationTests;
 
 public class DoctorCommandIntegrationTests
 {
     [Fact]
-    public void Doctor_DefaultMode_ProducesReadableText()
+    public async Task Doctor_TextFormatting_ProducesReadableText()
     {
-        var result = RunCli("doctor", apiKey: "test-key");
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/health").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200));
 
-        Assert.Equal(0, result.ExitCode);
-        Assert.Contains("Studywise CLI Diagnostics", result.StdOut);
-        Assert.Contains("Config:", result.StdOut);
-        Assert.Contains("API-nyckel:", result.StdOut);
-        Assert.Contains("Connection:", result.StdOut);
+        var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
+        var output = new TextDiagnosticReportFormatter().Format(report);
+
+        Assert.Contains("Studywise CLI Diagnostics", output);
+        Assert.Contains("Config:", output);
+        Assert.Contains("API-nyckel:", output);
+        Assert.Contains("Connection:", output);
+        Assert.Contains("All checks passed", output);
     }
 
     [Fact]
-    public void Doctor_JsonMode_ProducesJsonReport()
+    public async Task Doctor_JsonFormatting_ProducesJsonReport()
     {
-        var result = RunCli("doctor --json", apiKey: "test-key");
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/health").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200));
 
-        Assert.Equal(0, result.ExitCode);
+        var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
+        var output = new JsonDiagnosticReportFormatter().Format(report);
 
-        using var json = JsonDocument.Parse(result.StdOut);
+        using var json = JsonDocument.Parse(output);
         var root = json.RootElement;
 
         Assert.True(root.TryGetProperty("generatedAtUtc", out var generatedAtUtc));
@@ -56,47 +71,62 @@ public class DoctorCommandIntegrationTests
     }
 
     [Fact]
-    public void Doctor_ReturnsFailureWhenApiKeyIsMissing()
+    public async Task Doctor_ReturnsFailureWhenApiKeyIsMissing()
     {
-        var result = RunCli("doctor");
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/health").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200));
 
-        Assert.Equal(1, result.ExitCode);
-        Assert.Contains("API-nyckel: FAIL", result.StdOut);
+        var report = await RunDoctorDiagnosticsAsync(server.Url!);
+        var output = new TextDiagnosticReportFormatter().Format(report);
+
+        Assert.False(report.IsSuccess);
+        Assert.Equal(1, report.FailedCount);
+        Assert.Contains("API-nyckel: FAIL", output);
     }
 
-    private static (int ExitCode, string StdOut, string StdErr) RunCli(string arguments, string? apiKey = null)
+    private static async Task<DiagnosticReport> RunDoctorDiagnosticsAsync(string apiBaseUrl, string? apiKey = null)
     {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = "/home/robert/.dotnet/dotnet",
-            Arguments = $"run --project src/Studywise.Cli/Studywise.Cli.csproj -- {arguments}",
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-            WorkingDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../../"))
-        };
+        var previousBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
+        var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
 
-        startInfo.Environment["STUDYWISE_API_BASE_URL"] = "http://127.0.0.1:65535";
+        var configDirectory = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".config",
+            "studywise");
+        Directory.CreateDirectory(configDirectory);
 
-        if (apiKey is null)
+        var configPath = Path.Combine(configDirectory, "config.json");
+        var configExisted = File.Exists(configPath);
+        if (!configExisted)
         {
-            startInfo.Environment.Remove("STUDYWISE_API_KEY");
-        }
-        else
-        {
-            startInfo.Environment["STUDYWISE_API_KEY"] = apiKey;
+            await File.WriteAllTextAsync(configPath, "{}");
         }
 
-        using var process = Process.Start(startInfo);
-        if (process is null)
+        try
         {
-            throw new InvalidOperationException("Failed to start CLI process.");
+            Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", apiBaseUrl);
+            Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", apiKey);
+
+            var checks = new IDiagnosticCheck[]
+            {
+                new ConfigDiagnosticCheck(),
+                new ApiKeyDiagnosticCheck(),
+                new ConnectionDiagnosticCheck()
+            };
+
+            return await new DiagnosticRunner().RunAsync(checks);
         }
+        finally
+        {
+            Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", previousBaseUrl);
+            Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
 
-        var stdOut = process.StandardOutput.ReadToEnd();
-        var stdErr = process.StandardError.ReadToEnd();
-        process.WaitForExit();
-
-        return (process.ExitCode, stdOut, stdErr);
+            if (!configExisted && File.Exists(configPath))
+            {
+                File.Delete(configPath);
+            }
+        }
     }
 }
