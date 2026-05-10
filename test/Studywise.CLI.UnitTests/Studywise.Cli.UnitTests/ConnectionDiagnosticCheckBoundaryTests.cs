@@ -1,3 +1,4 @@
+using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 
@@ -13,7 +14,8 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         try
         {
-            var check = new ConnectionDiagnosticCheck();
+            var config = ApplicationConfig.FromEnvironment();
+            var check = new ConnectionDiagnosticCheck(config);
 
             var result = await check.RunAsync();
 
@@ -38,7 +40,8 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         try
         {
-            var check = new ConnectionDiagnosticCheck();
+            var config = ApplicationConfig.FromEnvironment();
+            var check = new ConnectionDiagnosticCheck(config);
 
             var result = await check.RunAsync(cts.Token);
 

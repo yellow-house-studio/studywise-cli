@@ -1,14 +1,14 @@
+using Studywise.Cli.Configuration;
+
 namespace Studywise.Cli.Diagnostics.Checks;
 
-public sealed class ApiKeyDiagnosticCheck : IDiagnosticCheck
+public sealed class ApiKeyDiagnosticCheck(ApplicationConfig config) : IDiagnosticCheck
 {
-    private const string ApiKeyEnvironmentVariable = "STUDYWISE_API_KEY";
-
     public string Name => "api-key";
 
     public Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var apiKey = Environment.GetEnvironmentVariable(ApiKeyEnvironmentVariable);
+        var apiKey = config.ApiKey;
 
         if (!string.IsNullOrWhiteSpace(apiKey))
         {

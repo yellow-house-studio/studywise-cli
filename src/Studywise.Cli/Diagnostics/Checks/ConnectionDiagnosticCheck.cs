@@ -1,17 +1,18 @@
+using System.Net.Http;
 using System.Net.Http.Headers;
+using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
-public sealed class ConnectionDiagnosticCheck : IDiagnosticCheck
+public sealed class ConnectionDiagnosticCheck(ApplicationConfig config) : IDiagnosticCheck
 {
-    private const string ApiBaseUrlEnvironmentVariable = "STUDYWISE_API_BASE_URL";
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
     public string Name => "connection";
 
     public async Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var baseUrl = Environment.GetEnvironmentVariable(ApiBaseUrlEnvironmentVariable) ?? "https://api.studywise.invalid";
+        var baseUrl = config.ApiBaseUrl;
 
         if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
         {

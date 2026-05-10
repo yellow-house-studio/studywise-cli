@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
@@ -22,11 +23,13 @@ public sealed class DoctorCommand
 
     private static async Task RunAsync(InvocationContext context, Option<bool> jsonOption)
     {
+        var config = ApplicationConfig.FromEnvironment();
+
         var checks = new IDiagnosticCheck[]
         {
             new ConfigDiagnosticCheck(),
-            new ApiKeyDiagnosticCheck(),
-            new ConnectionDiagnosticCheck()
+            new ApiKeyDiagnosticCheck(config),
+            new ConnectionDiagnosticCheck(config)
         };
 
         var runner = new DiagnosticRunner();

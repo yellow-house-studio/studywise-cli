@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
@@ -113,8 +114,8 @@ public class DoctorCommandIntegrationTests
             var checks = new IDiagnosticCheck[]
             {
                 new ConfigDiagnosticCheck(),
-                new ApiKeyDiagnosticCheck(),
-                new ConnectionDiagnosticCheck()
+                new ApiKeyDiagnosticCheck(ApplicationConfig.FromEnvironment()),
+                new ConnectionDiagnosticCheck(ApplicationConfig.FromEnvironment())
             };
 
             return await new DiagnosticRunner().RunAsync(checks);
