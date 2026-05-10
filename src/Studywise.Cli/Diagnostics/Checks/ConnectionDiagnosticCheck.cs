@@ -4,7 +4,7 @@ using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
-public sealed class ConnectionDiagnosticCheck(ApplicationConfig config) : IDiagnosticCheck
+public sealed class ConnectionDiagnosticCheck(ApplicationConfig config, HttpClient httpClient) : IDiagnosticCheck
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
@@ -19,16 +19,13 @@ public sealed class ConnectionDiagnosticCheck(ApplicationConfig config) : IDiagn
             return new DiagnosticCheckResult(Name, DiagnosticStatus.Warn, $"Connection: WARN — invalid base URL ({baseUrl})");
         }
 
-        using var client = new HttpClient
-        {
-            BaseAddress = baseUri,
-            Timeout = RequestTimeout
-        };
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+        httpClient.BaseAddress = baseUri;
+        httpClient.Timeout = RequestTimeout;
+        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         try
         {
-            using var response = await client.GetAsync("/health", cancellationToken);
+            using var response = await httpClient.GetAsync("/health", cancellationToken);
             if (response.IsSuccessStatusCode)
             {
                 return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health responded");

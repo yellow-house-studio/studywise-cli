@@ -1,4 +1,6 @@
+using System.Net.Http;
 using System.Text.Json;
+using Microsoft.Extensions.DependencyInjection;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
@@ -106,16 +108,23 @@ public class DoctorCommandIntegrationTests
             await File.WriteAllTextAsync(configPath, "{}");
         }
 
+        var services = new ServiceCollection();
+        services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl));
+        var serviceProvider = services.BuildServiceProvider();
+        var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
+        var httpClient = httpClientFactory.CreateClient("Studywise");
+
         try
         {
             Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", apiBaseUrl);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", apiKey);
 
+            var config = ApplicationConfig.FromEnvironment();
             var checks = new IDiagnosticCheck[]
             {
                 new ConfigDiagnosticCheck(),
-                new ApiKeyDiagnosticCheck(ApplicationConfig.FromEnvironment()),
-                new ConnectionDiagnosticCheck(ApplicationConfig.FromEnvironment())
+                new ApiKeyDiagnosticCheck(config),
+                new ConnectionDiagnosticCheck(config, httpClient)
             };
 
             return await new DiagnosticRunner().RunAsync(checks);

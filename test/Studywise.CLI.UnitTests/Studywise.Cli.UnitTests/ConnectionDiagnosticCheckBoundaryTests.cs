@@ -1,6 +1,8 @@
+using System.Net.Http;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
+using Xunit;
 
 namespace Studywise.CLI.UnitTests;
 
@@ -15,7 +17,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
         try
         {
             var config = ApplicationConfig.FromEnvironment();
-            var check = new ConnectionDiagnosticCheck(config);
+            var check = new ConnectionDiagnosticCheck(config, new HttpClient());
 
             var result = await check.RunAsync();
 
@@ -41,7 +43,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
         try
         {
             var config = ApplicationConfig.FromEnvironment();
-            var check = new ConnectionDiagnosticCheck(config);
+            var check = new ConnectionDiagnosticCheck(config, new HttpClient());
 
             var result = await check.RunAsync(cts.Token);
 

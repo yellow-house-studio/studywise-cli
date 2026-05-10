@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
+using System.Net.Http;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
@@ -29,7 +30,7 @@ public sealed class DoctorCommand
         {
             new ConfigDiagnosticCheck(),
             new ApiKeyDiagnosticCheck(config),
-            new ConnectionDiagnosticCheck(config)
+            new ConnectionDiagnosticCheck(config, new HttpClient())
         };
 
         var runner = new DiagnosticRunner();
