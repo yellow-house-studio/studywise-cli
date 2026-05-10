@@ -53,6 +53,9 @@ Så att jag snabbt ser om CLI:n är korrekt konfigurerad
 - JSON: only via `--json`
 - No `--output` flag in this issue
 
+### Decision: output flags
+The original issue text mentions `--output`, but planning decision is to keep US-001 simple: text is the default and `--json` is the only output-mode flag. A generic `--output <format>` option is intentionally out of scope unless future CLI requirements justify multiple output formats beyond text and JSON.
+
 ---
 
 ## Required Text Output Format
@@ -117,7 +120,10 @@ Implement three concrete checks:
 - `ApiKeyDiagnosticCheck`
 - `ConnectionDiagnosticCheck`
 
-For US-001 they can be basic but must execute in real flow and return structured results.
+For US-001 they establish the diagnostic contract and orchestration flow. They must execute in real sequence and return structured results, but detailed production validation belongs to later stories:
+- US-002: config file existence/readability
+- US-003: API-key existence/non-empty checks
+- US-004: health endpoint connection behavior
 
 ### 4) Orchestrator
 Add a diagnostics runner/service that:
@@ -191,6 +197,24 @@ Add formatter separation:
 7. Add/adjust unit tests
 8. Add integration tests
 9. Run: `dotnet build` + `dotnet test`
+
+---
+
+## Manual Verification
+
+After automated tests pass, verify the command manually:
+
+```bash
+dotnet run --project src/Studywise.Cli -- doctor
+```
+
+Expected: text output includes `Studywise CLI Diagnostics`, one line per check with `[PASS]`/`[FAIL]`/`[WARN]`, and a summary line.
+
+```bash
+dotnet run --project src/Studywise.Cli -- doctor --json
+```
+
+Expected: output is valid JSON containing the diagnostics report, ordered check results, statuses, and aggregate success/failure state.
 
 ---
 
