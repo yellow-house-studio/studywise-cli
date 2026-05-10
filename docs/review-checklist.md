@@ -86,7 +86,17 @@ For each issue/PR, verify:
 
 - [ ] All acceptance criteria from the feature plan are implemented
 - [ ] Manual verification commands documented and run
-- [ ] Tests cover all acceptance criteria
+- [ ] **Each acceptance criterion has an automated test covering it**
+- [ ] Tests are named/designed to map to specific acceptance criteria
+
+**Example mapping:**
+| Acceptance Criterion | Test |
+|---------------------|------|
+| "Exit code 0 when all checks pass" | `DoctorCommandTests.InvokeAsync_WithJsonFlag_ReturnsSuccessWhenNoChecksFail` |
+| "Exit code 1 when any check fails" | `DoctorCommandTests.InvokeAsync_ReturnsFailureWhenApiKeyMissing` |
+| "`--json` flag outputs machine-readable JSON" | `E2ETests.DoctorJson_OutputsMachineReadableDiagnostics` |
+
+For new features, the PR description should include a table mapping each criterion to its test(s). If a criterion cannot be tested automatically, note why and document manual verification instead.
 
 ---
 
