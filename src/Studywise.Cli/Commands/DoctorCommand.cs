@@ -3,6 +3,7 @@ using System.CommandLine.Invocation;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
+using Studywise.Cli.Formatting;
 
 namespace Studywise.Cli.Commands;
 
@@ -33,7 +34,7 @@ public sealed class DoctorCommand
         var asJson = context.ParseResult.GetValueForOption(jsonOption);
 
         var output = asJson
-            ? new JsonDiagnosticReportFormatter().Format(report)
+            ? JsonReporter.Format(report)
             : new TextDiagnosticReportFormatter().Format(report);
 
         context.Console.WriteLine(output);

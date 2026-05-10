@@ -1,10 +1,10 @@
 using System.Text.Json;
 using Studywise.Cli.Diagnostics;
-using Studywise.Cli.Diagnostics.Formatting;
+using Studywise.Cli.Formatting;
 
 namespace Studywise.CLI.UnitTests;
 
-public class JsonDiagnosticReportFormatterTests
+public class JsonReporterTests
 {
     [Fact]
     public void Format_ReturnsExpectedJsonShape()
@@ -15,8 +15,7 @@ public class JsonDiagnosticReportFormatterTests
             new DiagnosticCheckResult("api-key", DiagnosticStatus.Fail, "API-key: FAIL")
         ]);
 
-        var formatter = new JsonDiagnosticReportFormatter();
-        var json = formatter.Format(report);
+        var json = JsonReporter.Format(report);
 
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;

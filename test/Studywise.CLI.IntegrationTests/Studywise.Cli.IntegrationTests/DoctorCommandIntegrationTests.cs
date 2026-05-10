@@ -2,6 +2,7 @@ using System.Text.Json;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
+using Studywise.Cli.Formatting;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -37,7 +38,7 @@ public class DoctorCommandIntegrationTests
             .RespondWith(Response.Create().WithStatusCode(200));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
-        var output = new JsonDiagnosticReportFormatter().Format(report);
+        var output = JsonReporter.Format(report);
 
         using var json = JsonDocument.Parse(output);
         var root = json.RootElement;
