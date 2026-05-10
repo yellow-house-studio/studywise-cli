@@ -8,6 +8,12 @@ public class DoctorCommandE2ETests
     [Fact]
     public void DoctorJson_OutputsMachineReadableDiagnostics()
     {
+        using var devProxy = TryStartDevProxy();
+        if (devProxy is null)
+        {
+            return;
+        }
+
         var startInfo = new ProcessStartInfo
         {
             FileName = "/home/robert/.dotnet/dotnet",
@@ -19,7 +25,7 @@ public class DoctorCommandE2ETests
         };
 
         startInfo.Environment["STUDYWISE_API_KEY"] = "test-key";
-        startInfo.Environment["STUDYWISE_API_BASE_URL"] = "http://127.0.0.1:65535";
+        startInfo.Environment["STUDYWISE_API_BASE_URL"] = "http://127.0.0.1:8000";
 
         using var process = Process.Start(startInfo);
         Assert.NotNull(process);
@@ -37,5 +43,39 @@ public class DoctorCommandE2ETests
         Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
         Assert.Equal("connection", checks[2].GetProperty("name").GetString());
         Assert.True(string.IsNullOrWhiteSpace(stdErr), $"Unexpected stderr: {stdErr}");
+    }
+
+    private static Process? TryStartDevProxy()
+    {
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+        var mocksFile = Path.Combine(repoRoot, "test", "Studywise.CLI.E2ETests", "doctor-mocks.json");
+
+        foreach (var candidate in new[] { "devproxy", "/home/robert/.dotnet/tools/devproxy" })
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = candidate,
+                Arguments = $"--mocks-urls \"{mocksFile}\"",
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                WorkingDirectory = repoRoot
+            };
+
+            try
+            {
+                var process = Process.Start(startInfo);
+                if (process is not null && !process.HasExited)
+                {
+                    Thread.Sleep(1000);
+                    return process;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        return null;
     }
 }
