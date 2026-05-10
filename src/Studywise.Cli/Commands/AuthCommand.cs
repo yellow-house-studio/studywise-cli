@@ -2,6 +2,7 @@ using System.CommandLine;
 
 namespace Studywise.Cli.Commands;
 
+[AutoRegisterCommand]
 public static class AuthCommand
 {
     public static Command Create()
