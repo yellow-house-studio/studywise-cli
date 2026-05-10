@@ -189,21 +189,15 @@ Add formatter separation:
 ### E2E tests (CLI process + Dev Proxy)
 Use the existing `Studywise.CLI.E2ETests` pattern from `docs/testing/testing-strategy.md`: spawn the CLI as a separate process and mock HTTP through Microsoft Dev Proxy.
 
-1. `studywise doctor` (default text mode)
-   - Start Dev Proxy with deterministic mocks for diagnostics endpoints (including `/health`)
-   - Run CLI process with `doctor`
-   - Verify stdout contains `Studywise CLI Diagnostics`
-   - Verify stdout contains one line each for `Config`, `API-nyckel`, and `Connection` with status markers
-   - Verify summary line format (`All checks passed (3/3)` or failed/warn summary)
-   - Verify process exit code matches report outcome (`0` all-pass, `1` if any fail)
+Per team constraint, keep exactly **one E2E test per feature**. For US-001, that single E2E test verifies JSON mode only.
 
-2. `studywise doctor --json` (JSON mode)
-   - Start Dev Proxy with deterministic mocks for the same scenario
+1. `studywise doctor --json` (single E2E test for this feature)
+   - Start Dev Proxy with deterministic mocks for diagnostics endpoints (including `/health`)
    - Run CLI process with `doctor --json`
    - Verify stdout is valid JSON
    - Verify JSON includes ordered check results (`config`, `api-key`, `connection`) and statuses
    - Verify aggregate fields/counts and overall result are present
-   - Verify process exit code follows same policy (`0` all-pass, `1` if any fail)
+   - Verify process exit code follows policy (`0` all-pass, `1` if any fail)
 
 ---
 
@@ -217,7 +211,7 @@ Use the existing `Studywise.CLI.E2ETests` pattern from `docs/testing/testing-str
 6. Register doctor command in `Program.cs`
 7. Add/adjust unit tests
 8. Add integration tests
-9. Add one E2E test class in `Studywise.CLI.E2ETests` covering text and JSON doctor invocation (Dev Proxy pattern)
+9. Add one E2E test class in `Studywise.CLI.E2ETests` with one test for `doctor --json` (Dev Proxy pattern)
 10. Run: `dotnet build` + `dotnet test` (+ E2E test command if separated in CI/local)
 
 ---
