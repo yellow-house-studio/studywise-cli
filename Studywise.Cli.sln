@@ -9,9 +9,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studywise.Cli", "src\Studyw
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{0C88DD14-F956-CE84-757C-A364CCF449FC}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studywise.Cli.UnitTests", "test\Studywise.Cli.UnitTests\Studywise.Cli.UnitTests.csproj", "{5A6F1670-C4A4-4AF6-92A4-9F66DE7AFD44}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studywise.Cli.UnitTests", "test\Studywise.CLI.UnitTests\Studywise.Cli.UnitTests\Studywise.CLI.UnitTests.csproj", "{5A6F1670-C4A4-4AF6-92A4-9F66DE7AFD44}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studywise.Cli.IntegrationTests", "test\Studywise.Cli.IntegrationTests\Studywise.Cli.IntegrationTests.csproj", "{894E6DD5-F04D-451D-826E-BED054B3DB7C}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Studywise.Cli.IntegrationTests", "test\Studywise.CLI.IntegrationTests\Studywise.Cli.IntegrationTests\Studywise.CLI.IntegrationTests.csproj", "{894E6DD5-F04D-451D-826E-BED054B3DB7C}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
