@@ -9,7 +9,7 @@ public class DoctorCommandE2ETests
     public void DoctorJson_OutputsMachineReadableDiagnostics()
     {
         using var devProxy = TryStartDevProxy();
-        Assert.True(devProxy is not null, "Failed to start Dev Proxy; E2E coverage unavailable.");
+        Assert.True(devProxy is not null, "Failed to start Dev Proxy; install or run Dev Proxy so doctor --json E2E coverage executes.");
 
         var startInfo = new ProcessStartInfo
         {
