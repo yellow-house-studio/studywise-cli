@@ -68,6 +68,7 @@ public sealed class MyCommand
 | **`static Create()`** | Commands are stateless; no instance needed. Static factory follows CLI convention |
 | **No interface (`ICommandRegistration`)** | Unnecessary indirection. Attribute + static method is sufficient |
 | **DI via `BindingContext`** | System.CommandLine provides proper DI integration. Use `context.BindingContext.GetRequiredService<T>()` |
+| **E2E tests detect missing commands** | If a command lacks `Create()`, it won't appear in `--help` — E2E tests catch this |
 
 ### Dependency Injection Pattern
 
