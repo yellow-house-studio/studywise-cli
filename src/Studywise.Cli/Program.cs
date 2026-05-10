@@ -1,6 +1,5 @@
 using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
-using Studywise.Cli;
 using Studywise.Cli.Commands;
 using Studywise.Cli.Diagnostics;
 
@@ -22,11 +21,8 @@ services.AddSingleton<DiagnosticRunner>();
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
 
-// Initialize CommandServices for static command access
-CommandServices.Initialize(serviceProvider);
-
 // Build root command
-var rootCommand = new RootCommand("Studywise CLI - Client CLI for agents and end users");
+var rootCommand = new RootCommand("Studywise CLI - Client CLI for agent1s and end users");
 
 // Auto-register all commands with [AutoRegisterCommand] attribute
 var assembly = typeof(Program).Assembly;

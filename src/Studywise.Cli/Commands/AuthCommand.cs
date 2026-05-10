@@ -12,11 +12,11 @@ public sealed class AuthCommand
         command.AddAlias("login");
 
         var statusCommand = new Command("status", "Check authentication status");
-        statusCommand.SetHandler(context =>
+        statusCommand.SetHandler(async context =>
         {
-            var serviceProvider = context.BindingContext.GetService<IServiceProvider>();
-            var httpClientFactory = serviceProvider?.GetRequiredService<IHttpClientFactory>();
-            var httpClient = httpClientFactory?.CreateClient("Studywise");
+            var httpClientFactory = context.BindingContext
+                .GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory.CreateClient("Studywise");
 
             Console.WriteLine("Auth status: Not configured");
             Console.WriteLine("Set STUDYWISE_API_KEY environment variable for agent authentication.");
