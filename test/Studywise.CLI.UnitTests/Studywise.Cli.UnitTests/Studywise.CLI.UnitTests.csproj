@@ -17,11 +17,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\..\src\Studywise.Cli\Studywise.Cli.csproj" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Using Include="Xunit" />
+    <ProjectReference Include="..\..\src\Studywise.Cli\Studywise.Cli.csproj" />
   </ItemGroup>
 
 </Project>
