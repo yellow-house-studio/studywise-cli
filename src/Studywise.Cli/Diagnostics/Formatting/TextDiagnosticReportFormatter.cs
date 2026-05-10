@@ -36,6 +36,8 @@ public sealed class TextDiagnosticReportFormatter
         }
 
         var exitCode = report.IsSuccess ? 0 : 1;
-        return $"{report.FailedCount} failed, {report.PassedCount} passed, {report.WarningCount} warning (exit code {exitCode})";
+        return $"{report.FailedCount} failed, {report.PassedCount} passed, {report.WarningCount} {Pluralize(report.WarningCount, "warning", "warnings")} (exit code {exitCode})";
     }
+
+    private static string Pluralize(int count, string singular, string plural) => count == 1 ? singular : plural;
 }
