@@ -26,8 +26,18 @@ public class DoctorCommandIntegrationTests
 
         using var json = JsonDocument.Parse(result.StdOut);
         var root = json.RootElement;
+
+        Assert.True(root.TryGetProperty("generatedAtUtc", out var generatedAtUtc));
+        Assert.Equal(JsonValueKind.String, generatedAtUtc.ValueKind);
+
         Assert.True(root.TryGetProperty("checks", out var checks));
         Assert.Equal(3, checks.GetArrayLength());
+        Assert.True(checks[0].TryGetProperty("message", out var configMessage));
+        Assert.False(string.IsNullOrWhiteSpace(configMessage.GetString()));
+        Assert.True(checks[1].TryGetProperty("message", out var apiKeyMessage));
+        Assert.False(string.IsNullOrWhiteSpace(apiKeyMessage.GetString()));
+        Assert.True(checks[2].TryGetProperty("message", out var connectionMessage));
+        Assert.False(string.IsNullOrWhiteSpace(connectionMessage.GetString()));
         var passedCount = root.GetProperty("passedCount").GetInt32();
         var failedCount = root.GetProperty("failedCount").GetInt32();
         var warningCount = root.GetProperty("warningCount").GetInt32();
