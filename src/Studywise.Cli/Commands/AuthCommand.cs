@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Studywise.Cli.Commands;
 
@@ -15,10 +16,15 @@ public sealed class AuthCommand : ICommandRegistration
         command.AddAlias("login");
 
         var statusCommand = new Command("status", "Check authentication status");
-        statusCommand.SetHandler(() =>
+        statusCommand.SetHandler(context =>
         {
+            var serviceProvider = context.BindingContext.GetService<IServiceProvider>();
+            var httpClientFactory = serviceProvider?.GetRequiredService<IHttpClientFactory>();
+            var httpClient = httpClientFactory?.CreateClient("Studywise");
+
             Console.WriteLine("Auth status: Not configured");
             Console.WriteLine("Set STUDYWISE_API_KEY environment variable for agent authentication.");
+            Console.WriteLine($"HTTP client configured: {httpClient?.BaseAddress is not null}");
         });
 
         command.AddCommand(statusCommand);
