@@ -26,6 +26,7 @@ public class JsonDiagnosticReportFormatterTests
         Assert.True(DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _));
 
         Assert.True(root.TryGetProperty("checks", out var checks));
+        Assert.Equal(JsonValueKind.Array, checks.ValueKind);
         Assert.Equal(2, checks.GetArrayLength());
 
         Assert.True(checks[0].TryGetProperty("message", out var firstMessage));
@@ -40,5 +41,11 @@ public class JsonDiagnosticReportFormatterTests
 
         Assert.True(root.TryGetProperty("failedCount", out var failedCount));
         Assert.Equal(1, failedCount.GetInt32());
+        Assert.True(root.TryGetProperty("passedCount", out var passedCount));
+        Assert.Equal(1, passedCount.GetInt32());
+        Assert.True(root.TryGetProperty("warningCount", out var warningCount));
+        Assert.Equal(0, warningCount.GetInt32());
+        Assert.True(root.TryGetProperty("isSuccess", out var isSuccess));
+        Assert.False(isSuccess.GetBoolean());
     }
 }

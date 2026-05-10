@@ -32,7 +32,14 @@ public class DoctorCommandIntegrationTests
         Assert.True(DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _));
 
         Assert.True(root.TryGetProperty("checks", out var checks));
+        Assert.Equal(JsonValueKind.Array, checks.ValueKind);
         Assert.Equal(3, checks.GetArrayLength());
+        Assert.Equal("config", checks[0].GetProperty("name").GetString());
+        Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
+        Assert.Equal("connection", checks[2].GetProperty("name").GetString());
+        Assert.Contains(checks[0].GetProperty("status").GetString(), new[] { "pass", "warn", "fail" });
+        Assert.Contains(checks[1].GetProperty("status").GetString(), new[] { "pass", "warn", "fail" });
+        Assert.Contains(checks[2].GetProperty("status").GetString(), new[] { "pass", "warn", "fail" });
         Assert.True(checks[0].TryGetProperty("message", out var configMessage));
         Assert.False(string.IsNullOrWhiteSpace(configMessage.GetString()));
         Assert.True(checks[1].TryGetProperty("message", out var apiKeyMessage));
