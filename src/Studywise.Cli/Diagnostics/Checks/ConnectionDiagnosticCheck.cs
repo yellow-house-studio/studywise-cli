@@ -5,6 +5,7 @@ namespace Studywise.Cli.Diagnostics.Checks;
 public sealed class ConnectionDiagnosticCheck : IDiagnosticCheck
 {
     private const string ApiBaseUrlEnvironmentVariable = "STUDYWISE_API_BASE_URL";
+    private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
     public string Name => "connection";
 
@@ -17,7 +18,11 @@ public sealed class ConnectionDiagnosticCheck : IDiagnosticCheck
             return new DiagnosticCheckResult(Name, DiagnosticStatus.Warn, $"Connection: WARN — invalid base URL ({baseUrl})");
         }
 
-        using var client = new HttpClient { BaseAddress = baseUri };
+        using var client = new HttpClient
+        {
+            BaseAddress = baseUri,
+            Timeout = RequestTimeout
+        };
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         try
