@@ -6,6 +6,17 @@ namespace Studywise.CLI.UnitTests;
 public class DoctorCommandTests
 {
     [Fact]
+    public async Task InvokeAsync_Help_ShowsJsonOption()
+    {
+        var root = new RootCommand();
+        root.AddCommand(DoctorCommand.Create());
+
+        var exitCode = await root.InvokeAsync("doctor --help");
+
+        Assert.Equal(0, exitCode);
+    }
+
+    [Fact]
     public async Task InvokeAsync_WithJsonFlag_ReturnsSuccessWhenNoChecksFail()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
