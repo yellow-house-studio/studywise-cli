@@ -31,13 +31,13 @@ public sealed class ConnectionDiagnosticCheck(ApplicationConfig config) : IDiagn
             using var response = await client.GetAsync("/health", cancellationToken);
             if (response.IsSuccessStatusCode)
             {
-                return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health svarar");
+                return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health responded");
             }
 
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Warn,
-                $"Connection: WARN — /health svarade med {(int)response.StatusCode}");
+                $"Connection: WARN — /health returned {(int)response.StatusCode}");
         }
         catch (Exception ex)
         {
