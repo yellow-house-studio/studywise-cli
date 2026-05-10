@@ -29,6 +29,7 @@ public class DoctorCommandIntegrationTests
 
         Assert.True(root.TryGetProperty("generatedAtUtc", out var generatedAtUtc));
         Assert.Equal(JsonValueKind.String, generatedAtUtc.ValueKind);
+        Assert.True(DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _));
 
         Assert.True(root.TryGetProperty("checks", out var checks));
         Assert.Equal(3, checks.GetArrayLength());
