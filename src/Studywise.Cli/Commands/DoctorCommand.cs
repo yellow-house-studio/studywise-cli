@@ -6,6 +6,7 @@ using Studywise.Cli.Diagnostics.Formatting;
 
 namespace Studywise.Cli.Commands;
 
+[AutoRegisterCommand]
 public sealed class DoctorCommand : ICommandRegistration
 {
     public void Register(RootCommand rootCommand)
