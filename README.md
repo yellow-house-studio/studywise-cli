@@ -76,14 +76,21 @@ dotnet build Studywise.Cli.sln
 dotnet test Studywise.Cli.sln
 ```
 
-### Project Structure
+## API Models
+
+The CLI uses the `YellowHouseStudio.Studywise.Contracts` NuGet package for type-safe API interactions. This package is published from the [studywise-api repo](https://github.com/yellow-house-studio/studywise-api) (see issue [#274](https://github.com/yellow-house-studio/studywise-api/issues/274)).
+
+When the package is published, the CLI will reference it directly rather than duplicating models. Until then, models are defined locally in `src/Studywise.Cli/Models/`.
+
+## Project Structure
 
 ```
 studywise-cli/
 ├── src/Studywise.Cli/     # Main application
 │   ├── Commands/          # CLI commands
 │   ├── Auth/              # Authentication providers
-│   └── Configuration/     # Configuration options
+│   ├── Configuration/     # Configuration options
+│   └── Models/            # API DTOs (temporary, until Contracts package is available)
 ├── test/                  # Test projects
 └── .github/workflows/     # CI/CD
 ```
