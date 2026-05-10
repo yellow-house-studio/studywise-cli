@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
+using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Commands;
 
@@ -16,7 +17,7 @@ public sealed class AuthCommand
         {
             var httpClientFactory = context.BindingContext
                 .GetRequiredService<IHttpClientFactory>();
-            var httpClient = httpClientFactory.CreateClient("Studywise");
+            var httpClient = httpClientFactory.CreateClient(StudywiseDefaults.ApiName);
 
             Console.WriteLine("Auth status: Not configured");
             Console.WriteLine("Set STUDYWISE_API_KEY environment variable for agent authentication.");

@@ -1,28 +1,31 @@
 using System.CommandLine;
 using Microsoft.Extensions.DependencyInjection;
 using Studywise.Cli.Commands;
+using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
+
+// Load configuration from environment
+var config = ApplicationConfig.FromEnvironment();
 
 // Build service collection with DI
 var services = new ServiceCollection();
 
 // Register HttpClient with IHttpClientFactory
-services.AddHttpClient("Studywise", client =>
+services.AddHttpClient(StudywiseDefaults.ApiName, client =>
 {
-    var baseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL") 
-                  ?? "https://api.studywise.io";
-    client.BaseAddress = new Uri(baseUrl);
-    client.DefaultRequestHeaders.Add("User-Agent", "Studywise-CLI/1.0");
+    client.BaseAddress = new Uri(config.ApiBaseUrl);
+    client.DefaultRequestHeaders.Add("User-Agent", config.UserAgent);
 });
 
 // Register services
+services.AddSingleton(config);
 services.AddSingleton<DiagnosticRunner>();
 
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();
 
 // Build root command
-var rootCommand = new RootCommand("Studywise CLI - Client CLI for agent1s and end users");
+var rootCommand = new RootCommand("Studywise CLI - Client CLI for agents and end users");
 
 // Auto-register all commands with [AutoRegisterCommand] attribute
 var assembly = typeof(Program).Assembly;
@@ -36,7 +39,7 @@ foreach (var type in commandTypes)
 {
     var createMethod = type.GetMethod("Create");
     var command = createMethod?.Invoke(null, null) as Command;
-    if (command != null)
+    if (command is not null)
     {
         rootCommand.AddCommand(command);
     }
