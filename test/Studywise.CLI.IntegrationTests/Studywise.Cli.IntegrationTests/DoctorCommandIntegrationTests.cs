@@ -124,7 +124,7 @@ public class DoctorCommandIntegrationTests
             {
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(config),
-                new ConnectionDiagnosticCheck(config, httpClient)
+                new ConnectionDiagnosticCheck(httpClient)
             };
 
             return await new DiagnosticRunner().RunAsync(checks);

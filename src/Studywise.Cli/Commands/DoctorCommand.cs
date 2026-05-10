@@ -25,12 +25,13 @@ public sealed class DoctorCommand
     private static async Task RunAsync(InvocationContext context, Option<bool> jsonOption)
     {
         var config = ApplicationConfig.FromEnvironment();
+        var httpClient = new HttpClient { BaseAddress = new Uri(config.ApiBaseUrl) };
 
         var checks = new IDiagnosticCheck[]
         {
             new ConfigDiagnosticCheck(),
             new ApiKeyDiagnosticCheck(config),
-            new ConnectionDiagnosticCheck(config, new HttpClient())
+            new ConnectionDiagnosticCheck(httpClient)
         };
 
         var runner = new DiagnosticRunner();

@@ -1,10 +1,8 @@
 using System.Net.Http;
-using System.Net.Http.Headers;
-using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
-public sealed class ConnectionDiagnosticCheck(ApplicationConfig config, HttpClient httpClient) : IDiagnosticCheck
+public sealed class ConnectionDiagnosticCheck(HttpClient httpClient) : IDiagnosticCheck
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
@@ -12,16 +10,7 @@ public sealed class ConnectionDiagnosticCheck(ApplicationConfig config, HttpClie
 
     public async Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var baseUrl = config.ApiBaseUrl;
-
-        if (!Uri.TryCreate(baseUrl, UriKind.Absolute, out var baseUri))
-        {
-            return new DiagnosticCheckResult(Name, DiagnosticStatus.Warn, $"Connection: WARN — invalid base URL ({baseUrl})");
-        }
-
-        httpClient.BaseAddress = baseUri;
         httpClient.Timeout = RequestTimeout;
-        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
 
         try
         {
