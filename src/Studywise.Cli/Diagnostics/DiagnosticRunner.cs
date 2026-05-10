@@ -1,6 +1,13 @@
 namespace Studywise.Cli.Diagnostics;
 
-public sealed class DiagnosticRunner
+public interface IDiagnosticRunner
+{
+    Task<DiagnosticReport> RunAsync(
+        IEnumerable<IDiagnosticCheck> checks,
+        CancellationToken cancellationToken = default);
+}
+
+public sealed class DiagnosticRunner : IDiagnosticRunner
 {
     public async Task<DiagnosticReport> RunAsync(
         IEnumerable<IDiagnosticCheck> checks,
