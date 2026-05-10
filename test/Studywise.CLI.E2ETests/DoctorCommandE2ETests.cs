@@ -11,14 +11,17 @@ public class DoctorCommandE2ETests
         using var devProxy = TryStartDevProxy();
         Assert.True(devProxy is not null, "Failed to start Dev Proxy; install or run Dev Proxy so doctor --json E2E coverage executes.");
 
+        var dotnetPath = GetDotnetPath();
+        var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+
         var startInfo = new ProcessStartInfo
         {
-            FileName = "/home/robert/.dotnet/dotnet",
+            FileName = dotnetPath,
             Arguments = "run --project src/Studywise.Cli/Studywise.Cli.csproj -- doctor --json",
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
-            WorkingDirectory = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"))
+            WorkingDirectory = repoRoot
         };
 
         startInfo.Environment["STUDYWISE_API_KEY"] = "test-key";
@@ -52,14 +55,12 @@ public class DoctorCommandE2ETests
     private static Process? TryStartDevProxy()
     {
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
-        var mocksFile = Path.Combine(repoRoot, "test", "Studywise.CLI.E2ETests", "doctor-mocks.json");
 
-        foreach (var candidate in new[] { "devproxy", "/home/robert/.dotnet/tools/devproxy" })
+        foreach (var candidate in new[] { "devproxy", "/usr/local/bin/devproxy", "/opt/homebrew/bin/devproxy" })
         {
             var startInfo = new ProcessStartInfo
             {
                 FileName = candidate,
-                Arguments = $"--mocks-urls \"{mocksFile}\"",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
@@ -71,7 +72,7 @@ public class DoctorCommandE2ETests
                 var process = Process.Start(startInfo);
                 if (process is not null && !process.HasExited)
                 {
-                    Thread.Sleep(1000);
+                    Thread.Sleep(2000);
                     return process;
                 }
             }
@@ -81,5 +82,20 @@ public class DoctorCommandE2ETests
         }
 
         return null;
+    }
+
+    private static string GetDotnetPath()
+    {
+        var dotnetExe = Environment.GetEnvironmentVariable("DOTNET_ROOT") is not null
+            ? Path.Combine(Environment.GetEnvironmentVariable("DOTNET_ROOT")!, "dotnet")
+            : "dotnet";
+
+        if (OperatingSystem.IsWindows())
+            dotnetExe += ".exe";
+
+        if (File.Exists(dotnetExe))
+            return dotnetExe;
+
+        return "dotnet";
     }
 }
