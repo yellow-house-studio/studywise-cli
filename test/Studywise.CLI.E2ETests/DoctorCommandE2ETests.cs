@@ -42,6 +42,13 @@ public class DoctorCommandE2ETests
         Assert.Equal("config", checks[0].GetProperty("name").GetString());
         Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
         Assert.Equal("connection", checks[2].GetProperty("name").GetString());
+        var passedCount = root.GetProperty("passedCount").GetInt32();
+        var failedCount = root.GetProperty("failedCount").GetInt32();
+        var warningCount = root.GetProperty("warningCount").GetInt32();
+
+        Assert.Equal(3, passedCount + failedCount + warningCount);
+        Assert.Equal(0, failedCount);
+        Assert.True(root.GetProperty("isSuccess").GetBoolean());
         Assert.True(string.IsNullOrWhiteSpace(stdErr), $"Unexpected stderr: {stdErr}");
     }
 

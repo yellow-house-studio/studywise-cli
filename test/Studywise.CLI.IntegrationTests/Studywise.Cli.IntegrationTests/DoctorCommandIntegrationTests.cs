@@ -28,6 +28,13 @@ public class DoctorCommandIntegrationTests
         var root = json.RootElement;
         Assert.True(root.TryGetProperty("checks", out var checks));
         Assert.Equal(3, checks.GetArrayLength());
+        var passedCount = root.GetProperty("passedCount").GetInt32();
+        var failedCount = root.GetProperty("failedCount").GetInt32();
+        var warningCount = root.GetProperty("warningCount").GetInt32();
+
+        Assert.Equal(3, passedCount + failedCount + warningCount);
+        Assert.Equal(0, failedCount);
+        Assert.True(root.GetProperty("isSuccess").GetBoolean());
     }
 
     [Fact]
