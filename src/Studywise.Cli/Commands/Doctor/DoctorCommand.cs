@@ -1,7 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
 
-namespace Studywise.Cli.Commands;
+namespace Studywise.Cli.Commands.Doctor;
 
 public sealed class DoctorCommand : Command
 {

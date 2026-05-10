@@ -5,7 +5,7 @@ using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
 using Studywise.Cli.Formatting;
 
-namespace Studywise.Cli.Commands;
+namespace Studywise.Cli.Commands.Doctor;
 
 public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
 {

@@ -2,7 +2,7 @@ using System.CommandLine;
 using System.CommandLine.IO;
 using System.Net.Http;
 using System.Text.Json;
-using Studywise.Cli.Commands;
+using Studywise.Cli.Commands.Doctor;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Xunit;
