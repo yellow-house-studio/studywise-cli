@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Studywise.Cli.Commands;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
+using Studywise.Cli.Services;
 
 // Load configuration from environment
 var config = ApplicationConfig.FromEnvironment();
@@ -20,6 +21,7 @@ services.AddHttpClient(StudywiseDefaults.ApiName, client =>
 // Register services
 services.AddSingleton(config);
 services.AddSingleton<DiagnosticRunner>();
+services.AddSingleton<DoctorService>();
 
 // Build service provider
 var serviceProvider = services.BuildServiceProvider();

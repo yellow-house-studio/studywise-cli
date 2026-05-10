@@ -1,11 +1,9 @@
 using System.CommandLine;
 using System.CommandLine.Invocation;
-using System.Net.Http;
-using Studywise.Cli.Configuration;
-using Studywise.Cli.Diagnostics;
-using Studywise.Cli.Diagnostics.Checks;
+using Microsoft.Extensions.DependencyInjection;
 using Studywise.Cli.Diagnostics.Formatting;
 using Studywise.Cli.Formatting;
+using Studywise.Cli.Services;
 
 namespace Studywise.Cli.Commands;
 
@@ -24,18 +22,8 @@ public sealed class DoctorCommand
 
     private static async Task RunAsync(InvocationContext context, Option<bool> jsonOption)
     {
-        var config = ApplicationConfig.FromEnvironment();
-        var httpClient = new HttpClient { BaseAddress = new Uri(config.ApiBaseUrl) };
-
-        var checks = new IDiagnosticCheck[]
-        {
-            new ConfigDiagnosticCheck(),
-            new ApiKeyDiagnosticCheck(config),
-            new ConnectionDiagnosticCheck(httpClient)
-        };
-
-        var runner = new DiagnosticRunner();
-        var report = await runner.RunAsync(checks, context.GetCancellationToken());
+        var service = context.BindingContext.GetRequiredService<DoctorService>();
+        var report = await service.RunDiagnosticsAsync(context.GetCancellationToken());
         var asJson = context.ParseResult.GetValueForOption(jsonOption);
 
         var output = asJson

@@ -112,7 +112,6 @@ public class DoctorCommandIntegrationTests
         services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl));
         var serviceProvider = services.BuildServiceProvider();
         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-        var httpClient = httpClientFactory.CreateClient("Studywise");
 
         try
         {
@@ -124,7 +123,7 @@ public class DoctorCommandIntegrationTests
             {
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(config),
-                new ConnectionDiagnosticCheck(httpClient)
+                new ConnectionDiagnosticCheck(httpClientFactory)
             };
 
             return await new DiagnosticRunner().RunAsync(checks);

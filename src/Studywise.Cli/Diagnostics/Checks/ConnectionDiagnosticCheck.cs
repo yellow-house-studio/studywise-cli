@@ -1,8 +1,9 @@
 using System.Net.Http;
+using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
-public sealed class ConnectionDiagnosticCheck(HttpClient httpClient) : IDiagnosticCheck
+public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFactory) : IDiagnosticCheck
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
 
@@ -10,11 +11,12 @@ public sealed class ConnectionDiagnosticCheck(HttpClient httpClient) : IDiagnost
 
     public async Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        httpClient.Timeout = RequestTimeout;
+        using var client = httpClientFactory.CreateClient(StudywiseDefaults.ApiName);
+        client.Timeout = RequestTimeout;
 
         try
         {
-            using var response = await httpClient.GetAsync("/health", cancellationToken);
+            using var response = await client.GetAsync("/health", cancellationToken);
             if (response.IsSuccessStatusCode)
             {
                 return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health responded");
