@@ -7,13 +7,8 @@ using Studywise.Cli.Diagnostics.Formatting;
 namespace Studywise.Cli.Commands;
 
 [AutoRegisterCommand]
-public sealed class DoctorCommand : ICommandRegistration
+public sealed class DoctorCommand
 {
-    public void Register(RootCommand rootCommand)
-    {
-        rootCommand.AddCommand(Create());
-    }
-
     public static Command Create()
     {
         var command = new Command("doctor", "Run CLI diagnostics checks");

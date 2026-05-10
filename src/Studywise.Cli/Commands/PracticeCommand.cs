@@ -2,13 +2,9 @@ using System.CommandLine;
 
 namespace Studywise.Cli.Commands;
 
-public sealed class PracticeCommand : ICommandRegistration
+[AutoRegisterCommand]
+public sealed class PracticeCommand
 {
-    public void Register(RootCommand rootCommand)
-    {
-        rootCommand.AddCommand(Create());
-    }
-
     public static Command Create()
     {
         var command = new Command("practice", "Practice with flashcards");

@@ -3,13 +3,9 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace Studywise.Cli.Commands;
 
-public sealed class AuthCommand : ICommandRegistration
+[AutoRegisterCommand]
+public sealed class AuthCommand
 {
-    public void Register(RootCommand rootCommand)
-    {
-        rootCommand.AddCommand(Create());
-    }
-
     public static Command Create()
     {
         var command = new Command("auth", "Authentication commands");
