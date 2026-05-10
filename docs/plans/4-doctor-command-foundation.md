@@ -165,6 +165,8 @@ Add formatter separation:
   - `JsonDiagnosticReportFormatterTests.cs`
 - Integration tests project:
   - `DoctorCommandIntegrationTests.cs`
+- E2E tests project:
+  - `DoctorCommandE2ETests.cs`
 
 ---
 
@@ -184,6 +186,25 @@ Add formatter separation:
 2. Invoke root command with `doctor --json` and verify JSON payload
 3. Verify exit code behavior for pass/fail scenarios
 
+### E2E tests (CLI process + Dev Proxy)
+Use the existing `Studywise.CLI.E2ETests` pattern from `docs/testing/testing-strategy.md`: spawn the CLI as a separate process and mock HTTP through Microsoft Dev Proxy.
+
+1. `studywise doctor` (default text mode)
+   - Start Dev Proxy with deterministic mocks for diagnostics endpoints (including `/health`)
+   - Run CLI process with `doctor`
+   - Verify stdout contains `Studywise CLI Diagnostics`
+   - Verify stdout contains one line each for `Config`, `API-nyckel`, and `Connection` with status markers
+   - Verify summary line format (`All checks passed (3/3)` or failed/warn summary)
+   - Verify process exit code matches report outcome (`0` all-pass, `1` if any fail)
+
+2. `studywise doctor --json` (JSON mode)
+   - Start Dev Proxy with deterministic mocks for the same scenario
+   - Run CLI process with `doctor --json`
+   - Verify stdout is valid JSON
+   - Verify JSON includes ordered check results (`config`, `api-key`, `connection`) and statuses
+   - Verify aggregate fields/counts and overall result are present
+   - Verify process exit code follows same policy (`0` all-pass, `1` if any fail)
+
 ---
 
 ## Implementation Steps
@@ -196,7 +217,8 @@ Add formatter separation:
 6. Register doctor command in `Program.cs`
 7. Add/adjust unit tests
 8. Add integration tests
-9. Run: `dotnet build` + `dotnet test`
+9. Add one E2E test class in `Studywise.CLI.E2ETests` covering text and JSON doctor invocation (Dev Proxy pattern)
+10. Run: `dotnet build` + `dotnet test` (+ E2E test command if separated in CI/local)
 
 ---
 
