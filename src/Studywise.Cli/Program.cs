@@ -1,25 +1,21 @@
 using System.CommandLine;
+using System.Reflection;
 using Studywise.Cli.Commands;
 
 // Build root command
 var rootCommand = new RootCommand("Studywise CLI - Client CLI for agents and end users");
 
-// Auto-register all commands with [AutoRegisterCommand] attribute
-var assembly = typeof(Program).Assembly;
-var commandTypes = assembly.GetTypes()
-    .Where(t => t.IsClass 
-                && !t.IsAbstract 
-                && t.GetCustomAttributes(typeof(AutoRegisterCommandAttribute), false).Length > 0
-                && t.GetMethod("Create") != null);
+var registrations = Assembly.GetExecutingAssembly()
+    .GetTypes()
+    .Where(type => typeof(ICommandRegistration).IsAssignableFrom(type)
+        && type is { IsClass: true, IsAbstract: false })
+    .OrderBy(type => type.Name)
+    .Select(type => (ICommandRegistration)Activator.CreateInstance(type)!)
+    .ToList();
 
-foreach (var type in commandTypes)
+foreach (var registration in registrations)
 {
-    var createMethod = type.GetMethod("Create");
-    var command = createMethod?.Invoke(null, null) as Command;
-    if (command != null)
-    {
-        rootCommand.AddCommand(command);
-    }
+    registration.Register(rootCommand);
 }
 
 return await rootCommand.InvokeAsync(args);

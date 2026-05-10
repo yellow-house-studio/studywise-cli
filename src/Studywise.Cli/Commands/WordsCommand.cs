@@ -2,9 +2,13 @@ using System.CommandLine;
 
 namespace Studywise.Cli.Commands;
 
-[AutoRegisterCommand]
-public static class WordsCommand
+public sealed class WordsCommand : ICommandRegistration
 {
+    public void Register(RootCommand rootCommand)
+    {
+        rootCommand.AddCommand(Create());
+    }
+
     public static Command Create()
     {
         var command = new Command("words", "Manage word lists");
