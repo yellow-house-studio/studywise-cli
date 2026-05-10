@@ -15,6 +15,6 @@ public sealed class ApiKeyDiagnosticCheck : IDiagnosticCheck
             return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "API-nyckel: OK — finns (maskerad)"));
         }
 
-        return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel: FAIL — saknas i config"));
+        return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel: FAIL — saknas i environment variable"));
     }
 }
