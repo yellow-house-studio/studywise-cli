@@ -21,4 +21,8 @@
     <ProjectReference Include="..\..\..\src\Studywise.Cli\Studywise.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
 </Project>
