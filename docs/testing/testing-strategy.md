@@ -32,7 +32,9 @@ test/
 
 ## 3. IntegrationTests
 
-**Command handlers i samma process som testerna**, med HTTP mockad via WireMock.Net embedded.
+**Command handlers (eller motsvarande applikationslager) i samma process som testerna**, med HTTP mockad via WireMock.Net embedded.
+
+För kommandon utan dedikerad handler-klass (t.ex. diagnosflöden) testas check-runner/formatter direkt i process, men fortfarande med riktig HTTP via embedded WireMock.
 
 ```csharp
 public class IntegrationTests : IDisposable

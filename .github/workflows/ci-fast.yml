@@ -46,4 +46,4 @@ jobs:
         run: dotnet build Studywise.Cli.sln -c Release --no-restore
 
       - name: Run unit tests
-        run: dotnet test test/Studywise.Cli.UnitTests/Studywise.Cli.UnitTests.csproj -c Release --no-build --verbosity minimal
+        run: dotnet test test/Studywise.CLI.UnitTests/Studywise.Cli.UnitTests/Studywise.CLI.UnitTests.csproj -c Release --no-restore --verbosity minimal
