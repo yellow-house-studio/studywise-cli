@@ -1,7 +1,7 @@
 # Issue #2 Plan — Auth0 API Keys Authentication
 
 ## Summary
-Implement API key authentication for CLI agents (Robert, Lilly) via `X-Api-Key` header. The API validates key→user→family→data access chain. No M2M tokens (too broad). Storage at `~/.config/studywise/auth/` (similar to existing TokenStorage).
+Implement API key authentication for CLI agents (Robert, Lilly) via `X-Api-Key` header. The API validates key→user→family→data access chain. No M2M tokens (too broad). Storage via `STUDYWISE_API_KEY` environment variable only.
 
 ---
 
@@ -44,6 +44,16 @@ Så att jag kan automatiskt hantera Studywise-data för Johannas familj
 - **When** any CLI command runs
 - **Then** an error message is shown: "API-nyckel saknas. Sätt STUDYWISE_API_KEY."
 
+### AC-4b: Invalid/Revoked API Key Handling
+- **Given** `STUDYWISE_API_KEY` is set but the API returns 401 Unauthorized
+- **When** any CLI command runs
+- **Then** an error message is shown: "API-nyckel ogiltig eller återkallad. Kontrollera STUDYWISE_API_KEY."
+
+### AC-4c: Wrong Family Key Handling
+- **Given** `STUDYWISE_API_KEY` is set but the API returns 403 Forbidden (family mismatch)
+- **When** any CLI command runs
+- **Then** an error message is shown: "API-nyckel inte giltig för denna familj. Kontrollera STUDYWISE_API_KEY."
+
 ### AC-5: Doctor Command Detects Auth Status
 - **Given** a valid API key is configured
 - **When** `studywise doctor` runs
@@ -58,7 +68,7 @@ Så att jag kan automatiskt hantera Studywise-data för Johannas familj
 - **DO NOT** implement M2M tokens (too broad)
 - **DO NOT** implement interactive login flow
 - **DO NOT** create user-facing OAuth/OIDC flows
-- **DO NOT** store tokens in plain text (must be in auth/ directory with restricted permissions)
+- **DO NOT** store API keys in files (use env var only)
 - **DO NOT** implement Auth0 SDK — only API key header injection
 
 ---
@@ -89,11 +99,12 @@ ITokenProvider (interface)
 ├── ApiKeyTokenProvider    # Reads STUDYWISE_API_KEY env var
 └── (future) Auth0TokenProvider
 
-Token Storage: ~/.config/studywise/auth/
-- api-key (file with key, mode 0600)
+Token Storage: Environment variable STUDYWISE_API_KEY ONLY
 
 HttpClient: Adds X-Api-Key header via DelegatingHandler
 ```
+
+> **Note on auth folder:** The plan previously mentioned `~/.config/studywise/auth/` folder for token storage. This is removed — API key authentication uses the env var exclusively. Auth file storage (e.g., `~/.config/studywise/auth/token.json`) applies only to Auth0 device flow tokens (future work), not API keys. The `~/.config/studywise/auth/` directory is reserved for Auth0 device flow tokens (future). API key authentication does not write to disk.
 
 ### File Plan
 
@@ -131,26 +142,31 @@ pwsh test/Studywise.CLI.E2ETests/scripts/run-e2e-tests.ps1
 ```bash
 # With valid key
 export STUDYWISE_API_KEY=sk_live_test123
-dotnet run --project src/Studywise.Cli -- doctor
+dotnet run --project src/Studywise.Cli/Studywise.Cli.csproj -- doctor
 
 # Expected output:
 # [PASS] API-nyckel: OK — finns (maskerad)
 
 # Without key
 unset STUDYWISE_API_KEY
-dotnet run --project src/Studywise.Cli -- doctor
+dotnet run --project src/Studywise.Cli/Studywise.Cli.csproj -- doctor
 
 # Expected output:
 # [FAIL] API-nyckel: FAIL — saknas i environment variable
 ```
 
-### curl test (API contract)
+### curl test (API contract — family isolation)
 ```bash
-# Verify API accepts X-Api-Key header
-curl -H "X-Api-Key: sk_live_test123" https://api.studywise.io/health
+# Verify API accepts X-Api-Key header and enforces family isolation
+# Using /api/children (authenticated endpoint that returns family-scoped data)
+curl -H "X-Api-Key: sk_live_test123" https://api.studywise.io/api/children
 
-# Expected: 200 OK with auth-success indication
+# Expected: 200 OK with only Johannas children's data (family isolation verified at API level)
+# If key is wrong family: 403 Forbidden
+# If key is missing/invalid: 401 Unauthorized
 ```
+
+> **Note on family isolation:** The `/health` endpoint does not validate family_id from the API key. Family isolation is validated at the API level on authenticated endpoints like `/api/children`. Use `/api/children` (or any `/api/*` endpoint) to verify family-scoped access.
 
 ---
 
@@ -173,4 +189,12 @@ curl -H "X-Api-Key: sk_live_test123" https://api.studywise.io/health
 
 - API base URL is `https://api.studywise.io` (not `.se` — see `StudywiseDefaults`)
 - Mask API key in all output (show first 4 chars + `***` + last 4)
-- Auth folder is already documented in `docs/auth.md` — update if architecture changes
+- Auth folder is already documented in `docs/auth.md` — **update `docs/auth.md` when this feature is implemented** to reflect that API keys use env var only (no auth file)
+
+---
+
+## Doc Updates Required After Implementation
+
+| File | Update |
+|------|--------|
+| `docs/auth.md` | Add note that API keys use `STUDYWISE_API_KEY` env var only; auth folder is for future Auth0 device flow |
