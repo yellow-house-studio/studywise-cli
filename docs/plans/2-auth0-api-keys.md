@@ -16,8 +16,8 @@ CLI agents authenticate using a pre-configured API key passed via `X-Api-Key` he
 ---
 
 ## User Story
-Som agent (Robert/Lilly)  
-Vill jag kunna köra CLI-kommandon med min API-nyckel utan interaktiv inlogning  
+Som agent (Robert/Lilly)
+Vill jag kunna köra CLI-kommandon med min API-nyckel utan interaktiv inlogning
 Så att jag kan automatiskt hantera Studywise-data för Johannas familj
 
 ---
@@ -119,8 +119,8 @@ HttpClient: Adds X-Api-Key header via DelegatingHandler
 - `src/Studywise.Cli/Diagnostics/Checks/ApiKeyDiagnosticCheck.cs` — use token provider
 
 **Tests:**
-- `test/Studywise.CLI.UnitTests/ApiKeyTokenProviderTests.cs`
-- `test/Studywise.CLI.UnitTests/ApiKeyDelegatingHandlerTests.cs`
+- `test/Studywise.CLI.UnitTests/Studywise.Cli.UnitTests/ApiKeyTokenProviderTests.cs`
+- `test/Studywise.CLI.UnitTests/Studywise.Cli.UnitTests/ApiKeyDelegatingHandlerTests.cs`
 
 ---
 
@@ -129,14 +129,16 @@ HttpClient: Adds X-Api-Key header via DelegatingHandler
 ### Automated Tests
 ```bash
 # Unit tests
-dotnet test test/Studywise.CLI.UnitTests --filter "ApiKey"
+dotnet test test/Studywise.CLI.UnitTests/Studywise.Cli.UnitTests/Studywise.CLI.UnitTests.csproj --filter "ApiKey"
 
 # Integration tests (with mocked HTTP)
-dotnet test test/Studywise.CLI.IntegrationTests
+dotnet test test/Studywise.CLI.IntegrationTests/Studywise.Cli.IntegrationTests/Studywise.CLI.IntegrationTests.csproj
 
-# E2E test
-pwsh test/Studywise.CLI.E2ETests/scripts/run-e2e-tests.ps1
+# E2E tests
+dotnet test test/Studywise.CLI.E2ETests/Studywise.CLI.E2ETests.csproj
 ```
+
+> **Note:** E2E tests require `STUDYWISE_API_KEY` to be set in the environment.
 
 ### Manual Verification
 ```bash
