@@ -122,9 +122,9 @@ jobs:
         if: needs.docs-only-check.outputs.docs_only != 'true'
         run: dotnet test test/Studywise.CLI.IntegrationTests/Studywise.Cli.IntegrationTests/Studywise.CLI.IntegrationTests.csproj -c Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --logger "trx;LogFileName=integration-tests.trx" --results-directory artifacts/test-results/integration
 
-      - name: Setup Dev Proxy
+      - name: Start Dev Proxy
         if: needs.docs-only-check.outputs.docs_only != 'true'
-        run: bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)"
+        run: devproxy --detach --port 8000
 
       - name: Run E2E tests with coverage
         if: needs.docs-only-check.outputs.docs_only != 'true'
