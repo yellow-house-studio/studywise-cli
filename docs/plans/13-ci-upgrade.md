@@ -1,9 +1,9 @@
 # Issue #13 Plan — CI Upgrade (align with studywise-api)
 
 ## Summary
-Upgrade `studywise-cli` CI workflows to match the quality gate pattern used in `studywise-api`, including an approval-gated `ci-full.yml`, docs-only skip logic, deeper test coverage, and dependency vulnerability checks.
+Upgrade `studywise-cli` CI workflows to match the quality gate pattern used in `studywise-api`, including an approval-gated `ci-full.yml`, docs-only skip logic, explicit code quality gates (warnings/errors, documentation-comment policy, coverage), and dependency vulnerability checks.
 
-This plan keeps `ci-fast.yml` as the PR feedback loop and introduces `ci-full.yml` as the merge-quality gate triggered on PR approval.
+This plan keeps `ci-fast.yml` as the fast PR feedback loop, introduces `ci-full.yml` as the approval gate, and aligns release/production workflow responsibilities.
 
 ---
 
@@ -20,8 +20,10 @@ Så att PR:er får rätt kvalitetssäkring innan merge
 - Add integration test execution to fast/full workflows where appropriate
 - Add E2E test execution in full workflow (with Dev Proxy setup)
 - Add dependency vulnerability check (`dotnet list ... --vulnerable --include-transitive`)
+- Add quality checks for warnings-as-errors, documentation comments policy, and code coverage threshold
 - Align required status checks so PR merge requires passing CI
 - Ensure auto-merge can be used once required checks pass
+- Clarify `ci-production` responsibility vs `ci-release` and align workflow naming/behavior
 
 ---
 
@@ -29,6 +31,7 @@ Så att PR:er får rätt kvalitetssäkring innan merge
 - Re-architecting release/versioning strategy in `ci-release.yml`
 - Adding deployment environments or cloud deployment in `studywise-cli` full CI
 - Rewriting existing tests beyond what is needed for CI reliability
+- Large refactor of project-wide analyzer/doc-comment rules beyond minimal CI enforcement
 
 ---
 
@@ -61,15 +64,36 @@ Så att PR:er får rätt kvalitetssäkring innan merge
 4. Dependency vulnerability check
    - Missing in all existing CLI workflows
 
-5. Approval-gated full CI
+5. Code quality checks beyond tests
+   - Warnings-as-errors policy is not explicit/consistent across workflows
+   - No explicit documentation-comment quality gate
+   - No coverage collection/threshold enforcement in CI
+
+6. Approval-gated full CI
    - Missing: no `pull_request_review` approval workflow
 
-6. Branch protection/required checks
+7. Branch protection/required checks
    - Not defined in repo files; must be configured in GitHub branch protection rules
+
+8. Production/release workflow semantics
+   - Existing `ci-release.yml` mixes validation and release creation
+   - No explicit `ci-production.yml` equivalent to API naming/pattern
 
 ---
 
 ## Proposed Workflow Design
+
+### Quality Gate Split (Fast vs Full)
+
+- `ci-fast.yml` (required on PR updates):
+  - compile/build with warnings as errors
+  - unit + integration tests
+  - docs-only skip
+  - no E2E, no coverage threshold enforcement
+- `ci-full.yml` (required on PR approval):
+  - everything in fast, plus E2E, vulnerability scan, coverage collection + threshold check, stricter doc-comment gate
+
+Rationale: keep contributor feedback fast while placing heavier quality checks at approval gate.
 
 ### 1) New `ci-full.yml` (approval gate)
 
@@ -89,12 +113,14 @@ Jobs:
 - `build-and-test` (needs docs-only-check)
   - skip quickly when docs-only
   - setup .NET + cache
-  - restore + build
+  - restore + build with warnings as errors
+  - run doc-comment quality check (see policy below)
   - run unit tests
   - run integration tests
   - setup Dev Proxy
   - run E2E tests (`dotnet test test/Studywise.CLI.E2ETests/Studywise.CLI.E2ETests.csproj`)
   - run dependency vulnerability check and fail on vulnerable packages
+  - collect code coverage and enforce minimum threshold
   - upload test artifacts on failure
 
 Notes for CLI-specific adaptation:
@@ -102,28 +128,50 @@ Notes for CLI-specific adaptation:
 - No deploy-to-staging stage in full CI for CLI
 - Keep runtime within practical timeout (e.g. 30-45 min)
 
+Doc-comment policy options (decide in implementation PR):
+- Option A (strict, preferred if codebase is ready): enforce missing XML docs as errors for public API (`CS1591`) in `ci-full`
+- Option B (incremental): run analyzer/doc checks in `ci-full` and fail on configured doc rules only; add `CS1591` after baseline cleanup
+
+Recommended default for this issue: Option B, then create follow-up hardening issue to turn on strict `CS1591` globally.
+
 ### 2) Update `ci-fast.yml` (PR fast gate)
 
 Changes:
 - Add `docs-only-check` job and skip build/test on docs-only PRs
 - Keep fast profile but add integration tests
 - Keep E2E out of fast to preserve rapid feedback loop
-- Optional: add lightweight vulnerability check in fast if runtime impact is acceptable; otherwise keep it full-only
+- Build with warnings as errors (fast signal for quality regressions)
+- Keep vulnerability and coverage threshold checks in full (not fast)
 
 Proposed fast execution:
 - Restore
-- Build
+- Build (warnings as errors)
 - Unit tests
 - Integration tests
 
-### 3) Review `ci-release.yml` alignment
+### 3) `ci-production.yml` vs `ci-release.yml` alignment
 
-Keep `ci-release.yml` focused on post-merge release flow, but align reliability:
-- Ensure test project paths are correct and casing-safe:
-  - current file references `Studywise.Cli.UnitTests.csproj` and `Studywise.Cli.IntegrationTests.csproj`
-  - actual files are `Studywise.CLI.UnitTests.csproj` and `Studywise.CLI.IntegrationTests.csproj`
-- Consider adding `.txt` to `paths-ignore` for consistency with docs-only policy
-- Do not duplicate approval logic here (release is push-based)
+Decision:
+- Add `ci-production.yml` in this issue to match API workflow naming and intent.
+- Keep existing `ci-release.yml` temporarily, then deprecate/remove once `ci-production.yml` is validated.
+
+Responsibility split:
+- `ci-fast` + `ci-full`: quality validation and merge gates
+- `ci-production`: post-merge publish/release only (no full test suite duplication)
+
+`ci-production.yml` should:
+- trigger on `push` to `main` (and optionally tags)
+- skip docs-only changes via `paths-ignore` including `*.md`, `docs/**`, `*.txt`
+- build/package/publish release artifacts
+- create/update release draft or publish release (team choice)
+
+`ci-production.yml` should not:
+- rerun full quality suite already required pre-merge
+- duplicate approval-gated checks
+
+Note on "does it publish updates":
+- In this issue, goal is to define production workflow structure and ensure it performs actual publish/release artifact update.
+- If final production destination (for example package registry channel/versioning strategy) is undecided, keep publish target as draft GitHub Release in this issue and track "final production publish policy" as follow-up.
 
 ---
 
@@ -155,11 +203,19 @@ Optional parity with API repo:
 4. Add dependency vulnerability check
    - `ci-full.yml` includes `dotnet list ... --vulnerable --include-transitive` and fails on findings
 
-5. PR requires passing CI before merge
+5. Add code quality checks
+   - `ci-fast.yml` and `ci-full.yml` build with warnings-as-errors
+   - `ci-full.yml` runs doc-comment/analyzer quality gate
+   - `ci-full.yml` enforces code coverage threshold
+
+6. PR requires passing CI before merge
    - Branch protection configured to require `CI Fast` and `CI Full` checks on `main`
 
-6. Auto-merge can be enabled
+7. Auto-merge can be enabled
    - With required checks + approvals configured, auto-merge can be used in PR UI
+
+8. Production workflow alignment
+   - `ci-production.yml` exists with publish/release responsibility and no duplicated full test gate
 
 ---
 
@@ -174,6 +230,12 @@ Optional parity with API repo:
 - Risk: False failures in vulnerability check from incompatible projects
   - Mitigation: use same defensive parsing pattern as API workflow and fail only on real vulnerability findings
 
+- Risk: Coverage gate blocks PRs unexpectedly due to baseline mismatch
+  - Mitigation: establish baseline file first, enforce "no regression" or agreed minimum threshold
+
+- Risk: Doc-comment gate causes high initial noise
+  - Mitigation: start with incremental policy in `ci-full`, then tighten in follow-up issue
+
 - Risk: Required check deadlock if docs-only PR skips jobs
   - Mitigation: docs-only job itself must succeed and gated jobs should no-op cleanly rather than remain pending
 
@@ -182,20 +244,21 @@ Optional parity with API repo:
 ## Implementation Steps
 
 1. Add `.github/workflows/ci-full.yml` modeled after API workflow but CLI-tailored.
-2. Add docs-only detection + integration test stage to `.github/workflows/ci-fast.yml`.
-3. Add vulnerability check to `ci-full.yml` (and optionally fast if desired).
-4. Update `.github/workflows/ci-release.yml` path casing for test projects and align docs ignore patterns.
-5. Validate workflows with dry-run logic review and one test PR.
-6. Configure branch protection on `main` to require `CI Fast` and `CI Full`.
-7. Validate auto-merge behavior on a sample PR after checks pass.
+2. Add docs-only detection + integration tests + warnings-as-errors build to `.github/workflows/ci-fast.yml`.
+3. Add vulnerability check, doc-comment/analyzer gate, and coverage threshold gate to `ci-full.yml`.
+4. Add `.github/workflows/ci-production.yml` for post-merge publish/release responsibilities.
+5. Deprecate or simplify `.github/workflows/ci-release.yml` to avoid duplicate quality checks.
+6. Validate workflows with dry-run logic review and one test PR + one post-merge run.
+7. Configure branch protection on `main` to require `CI Fast` and `CI Full`.
+8. Validate auto-merge behavior on a sample PR after checks pass.
 
 ---
 
 ## Definition of Done
 
 - `ci-full.yml` exists and runs on PR approved state (`pull_request_review.submitted` + approved gate).
-- `ci-fast.yml` skips docs-only changes and includes integration tests.
-- Full CI runs unit + integration + E2E + dependency vulnerability checks.
-- `ci-release.yml` is aligned for correct test project paths.
+- `ci-fast.yml` skips docs-only changes and includes integration tests + warnings-as-errors build.
+- Full CI runs unit + integration + E2E + dependency vulnerability + doc-comment/analyzer + coverage-threshold checks.
+- `ci-production.yml` owns post-merge release/publish flow; `ci-release.yml` is removed or reduced to avoid duplicated validation.
 - Branch protection requires passing CI before merge.
 - Team can enable auto-merge on PRs when checks/approvals are satisfied.
