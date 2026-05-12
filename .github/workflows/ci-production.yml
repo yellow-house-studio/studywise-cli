@@ -1,0 +1,60 @@
+name: CI Production
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - '**/*.txt'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+
+jobs:
+  package-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 9.0.x
+
+      - name: Restore dependencies
+        run: dotnet restore Studywise.Cli.sln
+
+      - name: Build
+        run: dotnet build Studywise.Cli.sln -c Release --no-restore
+
+      - name: Publish self-contained binary
+        run: dotnet publish src/Studywise.Cli/Studywise.Cli.csproj -c Release --runtime linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./publish/linux-x64
+
+      - name: Create NuGet package
+        run: dotnet pack src/Studywise.Cli/Studywise.Cli.csproj -c Release --no-build -o ./publish
+
+      - name: Package binary
+        run: cd ./publish/linux-x64 && zip -r ../studywise-linux-x64.zip .
+
+      - name: Create GitHub Release draft
+        uses: ncipollo/release-action@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag: main-${{ github.run_number }}
+          name: Main Build ${{ github.run_number }}
+          artifacts: ./publish/*.zip,./publish/*.nupkg
+          draft: true
+          generateReleaseNotes: true
