@@ -1,21 +1,18 @@
 name: CI Production
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - '**/*.txt'
+  release:
+    types:
+      - published
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.release.id || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: write
+  packages: read
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -33,6 +30,8 @@ jobs:
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 9.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
 
       - name: Restore dependencies
         run: dotnet restore Studywise.Cli.sln
@@ -49,12 +48,11 @@ jobs:
       - name: Package binary
         run: cd ./publish/linux-x64 && zip -r ../studywise-linux-x64.zip .
 
-      - name: Create GitHub Release draft
+      - name: Attach artifacts to release
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: main-${{ github.run_number }}
-          name: Main Build ${{ github.run_number }}
+          tag: ${{ github.event.release.tag_name || format('manual-{0}', github.run_number) }}
           artifacts: ./publish/*.zip,./publish/*.nupkg
-          draft: true
+          allowUpdates: true
           generateReleaseNotes: true

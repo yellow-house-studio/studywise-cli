@@ -13,6 +13,7 @@ concurrency:
 permissions:
   contents: read
   packages: read
+  actions: read
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
@@ -131,6 +132,7 @@ jobs:
 
       - name: Enforce coverage threshold
         if: needs.docs-only-check.outputs.docs_only != 'true'
+        id: coverage-check
         env:
           MIN_COVERAGE_PERCENT: ${{ env.MIN_COVERAGE_PERCENT }}
         run: |
@@ -160,14 +162,40 @@ jobs:
           minimum = float(os.environ.get("MIN_COVERAGE_PERCENT", "1"))
           print(f"Coverage: {pct:.2f}% ({covered}/{valid}), required: {minimum:.2f}%")
 
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+            f.write(f"minimumCoverage={pct:.2f}\n")
+            f.write(f"covered={covered}\n")
+            f.write(f"valid={valid}\n")
+
           if pct < minimum:
             print("Coverage threshold not met")
             sys.exit(1)
           PY
 
+      - name: Write coverage summary
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        run: |
+          cat > coverage-summary.json << EOF
+          {
+            "minimumCoverage": ${{ steps.coverage-check.outputs.minimumCoverage }},
+            "covered": ${{ steps.coverage-check.outputs.covered }},
+            "valid": ${{ steps.coverage-check.outputs.valid }},
+            "source": "ci-full",
+            "timestamp": "$(date -Iseconds)"
+          }
+          EOF
+
+      - name: Upload coverage summary
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        uses: actions/upload-artifact@v5
+        with:
+          name: coverage-summary
+          path: coverage-summary.json
+          retention-days: 5
+
       - name: Upload test results on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results
           path: artifacts/test-results
