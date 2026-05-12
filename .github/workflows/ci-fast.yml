@@ -24,26 +24,67 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
+  docs-only-check:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      docs_only: ${{ steps.docs.outputs.docs_only }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect docs-only changes
+        id: docs
+        run: |
+          base_sha="${{ github.event.pull_request.base.sha }}"
+          head_sha="${{ github.event.pull_request.head.sha }}"
+          changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
+
+          if [ -z "$changed_files" ]; then
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          elif echo "$changed_files" | grep -qvE '(\.md$|docs/|\.txt$|\.cursor/skills/|\.opencode/skills/|\.codex/skills/)'; then
+            echo "docs_only=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "docs_only=true" >> "$GITHUB_OUTPUT"
+          fi
+
   build-and-test:
+    needs: [docs-only-check]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - name: Checkout
+        if: needs.docs-only-check.outputs.docs_only != 'true'
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
 
+      - name: Skip - docs only
+        if: needs.docs-only-check.outputs.docs_only == 'true'
+        run: echo "Skipping CI - only docs changed"
+
       - name: Setup .NET
+        if: needs.docs-only-check.outputs.docs_only != 'true'
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 9.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
 
       - name: Restore dependencies
+        if: needs.docs-only-check.outputs.docs_only != 'true'
         run: dotnet restore Studywise.Cli.sln
 
-      - name: Build
-        run: dotnet build Studywise.Cli.sln -c Release --no-restore
+      - name: Build (warnings as errors)
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        run: dotnet build Studywise.Cli.sln -c Release --no-restore "/p:TreatWarningsAsErrors=true"
 
       - name: Run unit tests
-        run: dotnet test test/Studywise.CLI.UnitTests/Studywise.Cli.UnitTests/Studywise.CLI.UnitTests.csproj -c Release --no-restore --verbosity minimal
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        run: dotnet test test/Studywise.CLI.UnitTests/Studywise.Cli.UnitTests/Studywise.CLI.UnitTests.csproj -c Release --no-build --verbosity minimal
+
+      - name: Run integration tests
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        run: dotnet test test/Studywise.CLI.IntegrationTests/Studywise.Cli.IntegrationTests/Studywise.CLI.IntegrationTests.csproj -c Release --no-build --verbosity minimal
