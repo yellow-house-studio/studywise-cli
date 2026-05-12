@@ -15,6 +15,8 @@ Enhance the existing `ConfigDiagnosticCheck` so `studywise doctor` treats config
      - Linux/macOS (XDG-style): `~/.config/studywise/config.json`
      - Windows: `%APPDATA%\\studywise\\config.json`
 - Ensure check output messages are explicit and include the resolved config path for each outcome (pass/missing/unreadable).
+- Implementation must use `Path.Combine` for path construction, not hardcoded path separators.
+- Tilde (`~`) expansion must use `Environment.GetFolderPath` or equivalent per-platform API, not shell-based expansion.
 
 ---
 
@@ -41,16 +43,25 @@ Then the check status is `FAIL`
 And the message clearly states the config file is missing and includes the expected path.
 
 ### AC3 — FAIL when config exists but is unreadable
-Given a config file exists at the resolved path but cannot be read due to permissions/access  
+Given a config file exists at the resolved path but cannot be read  
 When `studywise doctor` runs the config diagnostic check  
 Then the check status is `FAIL`  
-And the message clearly states the file is unreadable (permission/access issue) and includes the path.
+And the message states the file is unreadable and includes a specific reason:
+  - Permission denied (access denied)
+  - File locked/by another process
+  - Broken symlink (target missing)
+  - Other I/O errors
+And the message includes the path.
+
+Note: Broken symlinks count as FAIL (file technically exists at symlink path but target is missing).
 
 ### AC4 — Environment override is respected
 Given `STUDYWISE_CONFIG` is set to a custom file path  
 When `studywise doctor` runs the config diagnostic check  
 Then that override path is used as the resolved config path  
 And the result reflects the status of that override path.
+
+Note: An empty string value for `STUDYWISE_CONFIG` is treated as unset (use platform default), not as an explicit override to an empty path.
 
 ### AC5 — Platform default path is used when override is absent
 Given `STUDYWISE_CONFIG` is not set  
@@ -73,6 +84,7 @@ Then the resolved default path is `%APPDATA%\\studywise\\config.json`.
   - unreadable file -> `FAIL`
 - Validate reported path always matches the actual resolved path source (override vs default).
 - Validate no regressions in other diagnostics checks (`api-key`, `connection`) and existing doctor exit-code policy.
+- Run full test suite and assert only config check status changes (no other behavior differences).
 
 ---
 
@@ -81,6 +93,12 @@ Then the resolved default path is `%APPDATA%\\studywise\\config.json`.
 - Out of scope: config JSON schema/content validation.
 - Out of scope: behavior changes in non-config checks (`ApiKeyDiagnosticCheck`, `ConnectionDiagnosticCheck`).
 - Out of scope: broader diagnostics formatting redesign beyond message clarity needed for this check.
+
+---
+## Risks
+- Race condition: If the file becomes unreadable mid-check, behavior is undefined (acceptable for local CLI use).
+- Tilde expansion on Windows: Implementation must use `Environment.GetFolderPath` or equivalent to properly resolve `~` on each platform.
+- Empty `STUDYWISE_CONFIG=`: Treated as unset (use platform default), not as explicit override to empty path.
 
 ---
 
