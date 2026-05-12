@@ -1,7 +1,7 @@
 # Developer Environment Setup
 
 ## Status
-**Datum:** 2026-05-10
+**Datum:** 2026-05-12 (uppdaterad)
 **Typ:** Developer Guide
 **Projekt:** Studywise CLI
 
@@ -20,28 +20,22 @@
 
 Dev Proxy is used for E2E testing to mock HTTP responses at the network level.
 
-#### macOS
+#### Installation (Linux/macOS/Windows)
 
+Dev Proxy is pre-installed at `/home/robert/devproxy/devproxy` and symlinked to `~/.local/bin/devproxy`.
+
+**If not already installed:**
 ```bash
+# Linux/macOS
+bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)"
+
+# macOS via Homebrew
 brew tap dotnet/dev-proxy
 brew install dev-proxy
-```
 
-When prompted to trust the certificate, press `y` to confirm.
-
-#### Linux
-
-```bash
-bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)"
-```
-
-#### Windows
-
-```bash
+# Windows
 winget install DevProxy.DevProxy --silent
 ```
-
-After installing on Windows, restart your terminal to refresh the PATH.
 
 #### Verify Installation
 
@@ -51,13 +45,19 @@ devproxy --version
 
 #### Usage for E2E Tests
 
-Start Dev Proxy with mock files:
+Dev Proxy listens on port **8000** by default. Start with mock files:
 
 ```bash
 devproxy --mocks-urls "path/to/mocks.json"
+devproxy --detach  # Run in background
+devproxy status    # Check running status
+devproxy stop      # Stop background instance
+devproxy logs     # View logs
 ```
 
-Dev Proxy listens on `http://localhost:8000` by default.
+**In E2E tests:** Set `STUDYWISE_API_BASE_URL=http://127.0.0.1:8000` so CLI routes requests through Dev Proxy.
+
+---
 
 ---
 
@@ -77,8 +77,13 @@ dotnet test
 
 # E2E tests (requires Dev Proxy running)
 # Start Dev Proxy first:
-devproxy --mocks-urls "test/Studywise.CLI.E2ETests/doctor-mocks.json"
+devproxy --mocks-urls "test/Studywise.CLI.E2ETests/doctor-mocks.json" --detach
 
 # Then run E2E tests:
 dotnet test test/Studywise.CLI.E2ETests/Studywise.CLI.E2ETests.csproj
+
+# Or run all tests (Dev Proxy must be running in background):
+devproxy --detach && dotnet test && devproxy stop
 ```
+
+---
