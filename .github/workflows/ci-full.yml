@@ -122,19 +122,30 @@ jobs:
         if: needs.docs-only-check.outputs.docs_only != 'true'
         run: dotnet test test/Studywise.CLI.IntegrationTests/Studywise.Cli.IntegrationTests/Studywise.CLI.IntegrationTests.csproj -c Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --logger "trx;LogFileName=integration-tests.trx" --results-directory artifacts/test-results/integration
 
+      - name: Get Dev Proxy version
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        id: devproxy-version
+        run: |
+          DEVPROXY_VERSION=$(curl -s https://api.github.com/repos/microsoft/dev-proxy/releases/latest | jq .tag_name -r)
+          echo "DEVPROXY_VERSION=$DEVPROXY_VERSION" >> $GITHUB_ENV
+          echo "Dev Proxy version: $DEVPROXY_VERSION"
+
+      - name: Cache Dev Proxy
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        id: cache-devproxy
+        uses: actions/cache@v4
+        with:
+          path: ./devproxy
+          key: devproxy-${{ env.DEVPROXY_VERSION }}
+
+      - name: Install Dev Proxy
+        if: needs.docs-only-check.outputs.docs_only != 'true' && steps.cache-devproxy.outputs.cache-hit != 'true'
+        run: bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)"
+
       - name: Start Dev Proxy
         if: needs.docs-only-check.outputs.docs_only != 'true'
         run: |
-          # Install if needed
-          if ! command -v devproxy &> /dev/null; then
-            curl -sL https://aka.ms/devproxy/download.sh -o devproxy-install.sh
-            chmod +x devproxy-install.sh
-            ./devproxy-install.sh --channel stable
-            rm devproxy-install.sh
-          fi
-          
-          # Start Dev Proxy in background and wait for it to be ready
-          devproxy --detach --port 8000
+          ./devproxy/devproxy --detach --port 8000
           echo "Dev Proxy starting..."
           for i in {1..30}; do
             if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/ 2>/dev/null | grep -q "200"; then
@@ -145,9 +156,11 @@ jobs:
           done
           echo "WARNING: Dev Proxy may not be ready"
 
-
       - name: Run E2E tests with coverage
         if: needs.docs-only-check.outputs.docs_only != 'true'
+        env:
+          STUDYWISE_API_KEY: test-key
+          STUDYWISE_API_BASE_URL: http://127.0.0.1:8000
         run: dotnet test test/Studywise.CLI.E2ETests/Studywise.CLI.E2ETests.csproj -c Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --logger "trx;LogFileName=e2e-tests.trx" --results-directory artifacts/test-results/e2e
 
       - name: Enforce coverage threshold
