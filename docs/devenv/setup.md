@@ -20,22 +20,25 @@
 
 Dev Proxy is used for E2E testing to mock HTTP responses at the network level.
 
-#### Installation (Linux/macOS/Windows)
+#### Installation
 
-Dev Proxy is pre-installed at `/home/robert/devproxy/devproxy` and symlinked to `~/.local/bin/devproxy`.
-
-**If not already installed:**
+**Linux:**
 ```bash
-# Linux/macOS
 bash -c "$(curl -sL https://aka.ms/devproxy/setup.sh)"
+```
 
-# macOS via Homebrew
+**macOS:**
+```bash
 brew tap dotnet/dev-proxy
 brew install dev-proxy
+```
+When prompted to trust the certificate, press `y` to confirm.
 
-# Windows
+**Windows:**
+```bash
 winget install DevProxy.DevProxy --silent
 ```
+After installing on Windows, restart your terminal to refresh the PATH.
 
 #### Verify Installation
 
@@ -56,8 +59,6 @@ devproxy logs     # View logs
 ```
 
 **In E2E tests:** Set `STUDYWISE_API_BASE_URL=http://127.0.0.1:8000` so CLI routes requests through Dev Proxy.
-
----
 
 ---
 
@@ -87,3 +88,5 @@ devproxy --detach && dotnet test && devproxy stop
 ```
 
 ---
+
+_Skapad 2026-05-10 | Uppdaterad 2026-05-12_
