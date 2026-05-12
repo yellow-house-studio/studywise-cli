@@ -1,30 +1,41 @@
 name: CI Production
 
 on:
-  release:
-    types:
-      - published
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '**/*.md'
+      - 'docs/**'
+      - 'LICENSE'
+      - '.gitignore'
+      - '.cursor/**'
+      - '.opencode/**'
+      - '.codex/**'
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.release.id || github.ref }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: write
-  packages: read
+  packages: write
+  attestations: write
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
-  package-and-release:
+  build-and-package:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -33,11 +44,20 @@ jobs:
           cache: true
           cache-dependency-path: '**/*.csproj'
 
+      - name: Determine version bump
+        id: tag
+        uses: anothrNick/github-tag-action@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          WITH_V: true
+          DEFAULT_BUMP: patch
+          RELEASE_BRANCHES: main
+
       - name: Restore dependencies
         run: dotnet restore Studywise.Cli.sln
 
       - name: Build
-        run: dotnet build Studywise.Cli.sln -c Release --no-restore
+        run: dotnet build Studywise.Cli.sln -c Release --no-restore "/p:TreatWarningsAsErrors=true"
 
       - name: Publish self-contained binary
         run: dotnet publish src/Studywise.Cli/Studywise.Cli.csproj -c Release --runtime linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./publish/linux-x64
@@ -48,11 +68,11 @@ jobs:
       - name: Package binary
         run: cd ./publish/linux-x64 && zip -r ../studywise-linux-x64.zip .
 
-      - name: Attach artifacts to release
-        uses: ncipollo/release-action@v1
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.event.release.tag_name || format('manual-{0}', github.run_number) }}
-          artifacts: ./publish/*.zip,./publish/*.nupkg
-          allowUpdates: true
-          generateReleaseNotes: true
+          files: ./publish/*.zip,./publish/*.nupkg
+          generate_release_notes: true
+          prerelease: ${{ contains(steps.tag.outputs.new_tag, '-') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
