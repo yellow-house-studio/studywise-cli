@@ -1,12 +1,7 @@
-name: CI Release
+name: CI Release (Legacy)
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -20,31 +15,7 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
-  build-and-test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup .NET
-        uses: actions/setup-dotnet@v5
-        with:
-          dotnet-version: 9.0.x
-
-      - name: Restore dependencies
-        run: dotnet restore Studywise.Cli.sln
-
-      - name: Build
-        run: dotnet build Studywise.Cli.sln -c Release --no-restore
-
-      - name: Run unit tests
-        run: dotnet test test/Studywise.Cli.UnitTests/Studywise.Cli.UnitTests.csproj -c Release --no-build --verbosity minimal
-
-      - name: Run integration tests
-        run: dotnet test test/Studywise.Cli.IntegrationTests/Studywise.Cli.IntegrationTests.csproj -c Release --no-build --verbosity minimal
-
   release:
-    needs: build-and-test
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -71,7 +42,7 @@ jobs:
         uses: ncipollo/release-action@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag: v0.1.0
-          name: Release v0.1.0
+          tag: legacy-${{ github.run_number }}
+          name: Legacy Release ${{ github.run_number }}
           artifacts: ./publish/*.zip,./publish/*.nupkg
           draft: true
