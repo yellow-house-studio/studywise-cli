@@ -122,18 +122,29 @@ jobs:
         if: needs.docs-only-check.outputs.docs_only != 'true'
         run: dotnet test test/Studywise.CLI.IntegrationTests/Studywise.Cli.IntegrationTests/Studywise.CLI.IntegrationTests.csproj -c Release --no-build --verbosity minimal --collect:"XPlat Code Coverage" --logger "trx;LogFileName=integration-tests.trx" --results-directory artifacts/test-results/integration
 
-      - name: Setup Dev Proxy
+      - name: Start Dev Proxy
         if: needs.docs-only-check.outputs.docs_only != 'true'
         run: |
-          if command -v devproxy &> /dev/null; then
-            echo "Dev Proxy already installed: $(devproxy --version)"
-          else
-            echo "Installing Dev Proxy..."
+          # Install if needed
+          if ! command -v devproxy &> /dev/null; then
             curl -sL https://aka.ms/devproxy/download.sh -o devproxy-install.sh
             chmod +x devproxy-install.sh
             ./devproxy-install.sh --channel stable
             rm devproxy-install.sh
           fi
+          
+          # Start Dev Proxy in background and wait for it to be ready
+          devproxy --detach --port 8000
+          echo "Dev Proxy starting..."
+          for i in {1..30}; do
+            if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8000/ 2>/dev/null | grep -q "200"; then
+              echo "Dev Proxy is ready on port 8000"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "WARNING: Dev Proxy may not be ready"
+
 
       - name: Run E2E tests with coverage
         if: needs.docs-only-check.outputs.docs_only != 'true'
