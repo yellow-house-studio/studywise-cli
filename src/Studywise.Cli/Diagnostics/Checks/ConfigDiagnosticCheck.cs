@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;

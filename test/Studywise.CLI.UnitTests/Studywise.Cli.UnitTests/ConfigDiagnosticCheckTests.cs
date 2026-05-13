@@ -14,7 +14,7 @@ public class ConfigDiagnosticCheckTests : IDisposable
     {
         _tempDir = Path.Combine(Path.GetTempPath(), $"studywise_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_tempDir);
-        _originalConfigEnv = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG") ?? "";
+        _originalConfigEnv = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH") ?? "";
         _configEnvWasOriginallySet = !string.IsNullOrEmpty(_originalConfigEnv);
     }
 
@@ -23,23 +23,23 @@ public class ConfigDiagnosticCheckTests : IDisposable
         // Restore to original state: null if unset, original value if set
         if (_configEnvWasOriginallySet)
         {
-            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG", _originalConfigEnv);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", _originalConfigEnv);
         }
         else
         {
-            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG", null);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", null);
         }
         Directory.Delete(_tempDir, recursive: true);
     }
 
     private void SetConfigPath(string path)
     {
-        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG", path);
+        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", path);
     }
 
     private void ClearConfigPath()
     {
-        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG", "");
+        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", null);
     }
 
     private static bool IsBrokenSymlink(string path)
@@ -135,7 +135,7 @@ public class ConfigDiagnosticCheckTests : IDisposable
     [Fact]
     public async Task RunAsync_EmptyConfigEnvTreatedAsUnset()
     {
-        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG", "");
+        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", Path.Combine(Path.GetTempPath(), "nonexistent_studywise_config_" + Guid.NewGuid()));
         var check = new ConfigDiagnosticCheck();
         var result = await check.RunAsync();
 
