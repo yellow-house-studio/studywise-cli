@@ -47,7 +47,9 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
         IDiagnosticCheck[]? checks = ResolveChecks(options.CheckName);
         if (checks is null)
         {
-            System.Console.Error.WriteLine($"unknown check: {options.CheckName}");
+            var err = console.Error;
+            err.Write($"unknown check: {options.CheckName}");
+            err.Write(Environment.NewLine);
             return 1;
         }
 
