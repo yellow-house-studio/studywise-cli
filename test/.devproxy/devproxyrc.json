@@ -1,0 +1,19 @@
+{
+  "$schema": "https://raw.githubusercontent.com/dotnet/dev-proxy/main/schemas/v2.4.0/rc.schema.json",
+  "port": 8000,
+  "urlsToWatch": [
+    "http://127.0.0.1:8000/*"
+  ],
+  "plugins": [
+    {
+      "name": "MockResponsePlugin",
+      "enabled": true,
+      "pluginPath": "~appFolder/plugins/DevProxy.Plugins.dll",
+      "configSection": "studywiseMocks"
+    }
+  ],
+  "studywiseMocks": {
+    "$schema": "https://raw.githubusercontent.com/dotnet/dev-proxy/main/schemas/v2.4.0/mockresponseplugin.schema.json",
+    "mocksFile": "studywise-health-mock.json"
+  }
+}
