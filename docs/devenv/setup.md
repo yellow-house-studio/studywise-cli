@@ -51,13 +51,14 @@ devproxy --version
 
 #### Usage for E2E Tests
 
-Start Dev Proxy with mock files:
+Mock configuration files are in `test/.devproxy/`:
 
 ```bash
-devproxy --mocks-urls "path/to/mocks.json"
+# Start Dev Proxy with project mock config:
+devproxy -c test/.devproxy/devproxyrc.json
 ```
 
-Dev Proxy listens on `http://localhost:8000` by default.
+Dev Proxy listens on `http://127.0.0.1:8000` by default. The E2E tests automatically start Dev Proxy with this config when run via `dotnet test`.
 
 ---
 
@@ -75,10 +76,6 @@ This is included as a package dependency in `Studywise.CLI.IntegrationTests`.
 # Unit + Integration tests (no external dependencies)
 dotnet test
 
-# E2E tests (requires Dev Proxy running)
-# Start Dev Proxy first:
-devproxy --mocks-urls "test/Studywise.CLI.E2ETests/doctor-mocks.json"
-
-# Then run E2E tests:
+# E2E tests (Dev Proxy is started automatically by the test)
 dotnet test test/Studywise.CLI.E2ETests/Studywise.CLI.E2ETests.csproj
 ```
