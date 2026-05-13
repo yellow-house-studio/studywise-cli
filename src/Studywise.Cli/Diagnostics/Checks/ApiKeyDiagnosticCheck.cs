@@ -2,13 +2,13 @@ using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
-public sealed class ApiKeyDiagnosticCheck(ApplicationConfig config) : IDiagnosticCheck
+public sealed class ApiKeyDiagnosticCheck(string? configPath = null) : IDiagnosticCheck
 {
     public string Name => "api-key";
 
     public Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var apiKey = config.ApiKey;
+        var apiKey = ApplicationConfig.ReadApiKeyFromConfigFile(configPath);
 
         if (!string.IsNullOrWhiteSpace(apiKey))
         {

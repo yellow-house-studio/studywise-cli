@@ -1,3 +1,5 @@
+using Studywise.Cli.Configuration;
+
 namespace Studywise.Cli.Diagnostics.Checks;
 
 public sealed class ConfigDiagnosticCheck : IDiagnosticCheck
@@ -6,11 +8,7 @@ public sealed class ConfigDiagnosticCheck : IDiagnosticCheck
 
     public Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var configPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config",
-            "studywise",
-            "config.json");
+        var configPath = ApplicationConfig.GetConfigPath();
 
         if (File.Exists(configPath))
         {

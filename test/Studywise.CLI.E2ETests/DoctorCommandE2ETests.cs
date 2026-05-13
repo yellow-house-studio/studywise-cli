@@ -13,6 +13,10 @@ public class DoctorCommandE2ETests
 
         var dotnetPath = GetDotnetPath();
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
+        var tempDirectory = Path.Combine(Path.GetTempPath(), $"studywise-tests-{Guid.NewGuid():N}");
+        var configPath = Path.Combine(tempDirectory, "config.json");
+        Directory.CreateDirectory(tempDirectory);
+        File.WriteAllText(configPath, "{\"apiKey\":\"test-key\"}");
 
         var startInfo = new ProcessStartInfo
         {
@@ -26,6 +30,7 @@ public class DoctorCommandE2ETests
 
         startInfo.Environment["STUDYWISE_API_KEY"] = "test-key";
         startInfo.Environment["STUDYWISE_API_BASE_URL"] = "http://127.0.0.1:8000";
+        startInfo.Environment["STUDYWISE_CONFIG_PATH"] = configPath;
 
         using var process = Process.Start(startInfo);
         Assert.NotNull(process);
@@ -34,22 +39,32 @@ public class DoctorCommandE2ETests
         var stdErr = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
-        Assert.Equal(0, process.ExitCode);
-        using var json = JsonDocument.Parse(stdOut);
-        var root = json.RootElement;
-        Assert.True(root.TryGetProperty("checks", out var checks));
-        Assert.Equal(3, checks.GetArrayLength());
-        Assert.Equal("config", checks[0].GetProperty("name").GetString());
-        Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
-        Assert.Equal("connection", checks[2].GetProperty("name").GetString());
-        var passedCount = root.GetProperty("passedCount").GetInt32();
-        var failedCount = root.GetProperty("failedCount").GetInt32();
-        var warningCount = root.GetProperty("warningCount").GetInt32();
+        try
+        {
+            Assert.Equal(0, process.ExitCode);
+            using var json = JsonDocument.Parse(stdOut);
+            var root = json.RootElement;
+            Assert.True(root.TryGetProperty("checks", out var checks));
+            Assert.Equal(3, checks.GetArrayLength());
+            Assert.Equal("config", checks[0].GetProperty("name").GetString());
+            Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
+            Assert.Equal("connection", checks[2].GetProperty("name").GetString());
+            var passedCount = root.GetProperty("passedCount").GetInt32();
+            var failedCount = root.GetProperty("failedCount").GetInt32();
+            var warningCount = root.GetProperty("warningCount").GetInt32();
 
-        Assert.Equal(3, passedCount + failedCount + warningCount);
-        Assert.Equal(0, failedCount);
-        Assert.True(root.GetProperty("isSuccess").GetBoolean());
-        Assert.True(string.IsNullOrWhiteSpace(stdErr), $"Unexpected stderr: {stdErr}");
+            Assert.Equal(3, passedCount + failedCount + warningCount);
+            Assert.Equal(0, failedCount);
+            Assert.True(root.GetProperty("isSuccess").GetBoolean());
+            Assert.True(string.IsNullOrWhiteSpace(stdErr), $"Unexpected stderr: {stdErr}");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDirectory))
+            {
+                Directory.Delete(tempDirectory, recursive: true);
+            }
+        }
     }
 
     private static Process? TryStartDevProxy()
