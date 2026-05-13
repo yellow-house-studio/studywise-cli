@@ -133,7 +133,7 @@ public class ConfigDiagnosticCheckTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAsync_EmptyConfigEnvTreatedAsUnset()
+    public async Task RunAsync_NonexistentConfigPathFromEnv_FailsWithPathInMessage()
     {
         Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", Path.Combine(Path.GetTempPath(), "nonexistent_studywise_config_" + Guid.NewGuid()));
         var check = new ConfigDiagnosticCheck();
@@ -142,18 +142,8 @@ public class ConfigDiagnosticCheckTests : IDisposable
         Assert.Equal(DiagnosticStatus.Fail, result.Status);
         Assert.Contains("missing", result.Message, StringComparison.OrdinalIgnoreCase);
 
-        // Verify the resolved path matches the platform default (not the empty string)
-        string expectedPath;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            expectedPath = Path.Combine(appData, "studywise", "config.json");
-        }
-        else
-        {
-            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-            expectedPath = Path.Combine(userProfile, ".config", "studywise", "config.json");
-        }
+        // Verify the resolved path is the env var path (not the platform default)
+        var expectedPath = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
         Assert.Contains(expectedPath, result.Message);
     }
 }
