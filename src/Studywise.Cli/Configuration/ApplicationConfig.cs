@@ -1,5 +1,3 @@
-using System.Text.Json;
-
 namespace Studywise.Cli.Configuration;
 
 public sealed class ApplicationConfig
@@ -10,64 +8,15 @@ public sealed class ApplicationConfig
     
     public static ApplicationConfig FromEnvironment(string? configPathOverride = null)
     {
+        _ = configPathOverride;
         var apiBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
-        var apiKeyFromConfig = ReadApiKeyFromConfigFile(configPathOverride);
         var apiKeyFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY") ?? string.Empty;
         
         return new ApplicationConfig
         {
             ApiBaseUrl = apiBaseUrl ?? StudywiseDefaults.ApiBaseUrl,
-            ApiKey = string.IsNullOrWhiteSpace(apiKeyFromConfig) ? apiKeyFromEnvironment : apiKeyFromConfig
+            ApiKey = apiKeyFromEnvironment
         };
-    }
-
-    public static string ReadApiKeyFromConfigFile(string? configPathOverride = null)
-    {
-        var configPath = GetConfigPath(configPathOverride);
-
-        if (!File.Exists(configPath))
-        {
-            return string.Empty;
-        }
-
-        try
-        {
-            using var fileStream = File.OpenRead(configPath);
-            using var document = JsonDocument.Parse(fileStream);
-
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                return string.Empty;
-            }
-
-            if (TryGetStringProperty(document.RootElement, "apiKey", out var apiKey))
-            {
-                return apiKey;
-            }
-
-            if (TryGetStringProperty(document.RootElement, "api_key", out var snakeCaseApiKey))
-            {
-                return snakeCaseApiKey;
-            }
-
-            return string.Empty;
-        }
-        catch (JsonException)
-        {
-            return string.Empty;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return string.Empty;
-        }
-        catch (IOException)
-        {
-            return string.Empty;
-        }
-        catch (OperationCanceledException)
-        {
-            return string.Empty;
-        }
     }
 
     public static string GetConfigPath(string? configPathOverride = null)
@@ -96,17 +45,6 @@ public sealed class ApplicationConfig
             "config.json");
     }
 
-    private static bool TryGetStringProperty(JsonElement source, string propertyName, out string value)
-    {
-        if (source.TryGetProperty(propertyName, out var property) && property.ValueKind == JsonValueKind.String)
-        {
-            value = property.GetString() ?? string.Empty;
-            return true;
-        }
-
-        value = string.Empty;
-        return false;
-    }
 }
 
 public static class StudywiseDefaults
