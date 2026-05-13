@@ -93,53 +93,15 @@ E2ETests
 ### Setup
 
 ```bash
-# Installera Dev Proxy
-dotnet tool install -g Microsoft.devproxy
+# Installera Dev Proxy (macOS)
+brew tap dotnet/dev-proxy && brew install dev-proxy
 ```
 
-```csharp
-[Fact]
-public void ListEducationLevels_WithMockApi_ReturnsTable()
-{
-    // Starta Dev Proxy som bakgrundsprocess
-    using var devProxy = StartDevProxy(mocksFile: "mocks.json");
+Mock configuration files are in `test/.devproxy/`. The E2E test automatically starts Dev Proxy with the correct config, so no manual startup is needed.
 
-    // Spawna CLI:n
-    var cliPath = GetCliPath();
-    using var cli = new Process { StartInfo = new ProcessStartInfo
-    {
-        FileName = "dotnet",
-        Arguments = $"run --project {cliPath}",
-        Environment = { ["API_BASE_URL"] = devProxy.Url },
-        RedirectStandardOutput = true,
-        UseShellExecute = false
-    }};
-
-    cli.Start();
-    var output = cli.StandardOutput.ReadToEnd();
-    cli.WaitForExit();
-
-    Assert.Equal(0, cli.ExitCode);
-    Assert.Contains("Education Levels", output);
-    Assert.Contains("Master", output); // Svenska "master degree"
-}
-```
-
-### Mocks.json-exempel
-
-```json
-[
-  {
-    "request": {
-      "method": "GET",
-      "path": "/api/v1/education-levels"
-    },
-    "response": {
-      "status": 200,
-      "body": "[{\"id\":\"1\",\"name\":\"Master\",\"country\":\"Sweden\"}]"
-    }
-  }
-]
+```bash
+# Kör alla tester (E2E starts Dev Proxy automatically)
+dotnet test
 ```
 
 ---
@@ -158,13 +120,11 @@ public void ListEducationLevels_WithMockApi_ReturnsTable()
 ## 6. Komma igång
 
 ```bash
-# 1. Installera verktyg
-dotnet tool install -g Microsoft.devproxy
-dotnet tool install -g WireMock.Net
+# 1. Installera Dev Proxy (macOS)
+brew tap dotnet/dev-proxy && brew install dev-proxy
 
-# 2. Kör tester
-dotnet test                              # UnitTests + IntegrationTests
-dotnet test --project test/E2ETests      # E2ETests (kräver Dev Proxy)
+# 2. Kör alla tester (E2E startar Dev Proxy automatiskt)
+dotnet test
 ```
 
 ---

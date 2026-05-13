@@ -324,11 +324,11 @@ Test Process (E2ETests)
 ### Setup-exempel
 
 ```bash
-# Installera Dev Proxy
-dotnet tool install -g Microsoft.devproxy
+# Installera Dev Proxy (macOS)
+brew tap dotnet/dev-proxy && brew install dev-proxy
 
-# Starta med mock-filer:
-devproxy --mocks-urls mocks.json
+# Starta med projektets mock-config:
+devproxy -c test/.devproxy/devproxyrc.json
 
 # Eller spela in för record/playback:
 devproxy --record --output recordings/
