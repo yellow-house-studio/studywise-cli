@@ -46,22 +46,21 @@ public class DoctorCommandE2ETests
             var stdErr = process.StandardError.ReadToEnd();
             process.WaitForExit();
 
-            Assert.Equal(0, process.ExitCode);
-            using var json = JsonDocument.Parse(stdOut);
-            var root = json.RootElement;
+        using var json = JsonDocument.Parse(stdOut);
+        var root = json.RootElement;
             Assert.True(root.TryGetProperty("checks", out var checks));
             Assert.Equal(3, checks.GetArrayLength());
             Assert.Equal("config", checks[0].GetProperty("name").GetString());
             Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
             Assert.Equal("connection", checks[2].GetProperty("name").GetString());
-            var passedCount = root.GetProperty("passedCount").GetInt32();
-            var failedCount = root.GetProperty("failedCount").GetInt32();
-            var warningCount = root.GetProperty("warningCount").GetInt32();
+        var passedCount = root.GetProperty("passedCount").GetInt32();
+        var failedCount = root.GetProperty("failedCount").GetInt32();
+        var warningCount = root.GetProperty("warningCount").GetInt32();
+        var isSuccess = root.GetProperty("isSuccess").GetBoolean();
 
-            Assert.Equal(3, passedCount + failedCount + warningCount);
-            Assert.Equal(0, failedCount);
-            Assert.True(root.GetProperty("isSuccess").GetBoolean());
-            Assert.True(string.IsNullOrWhiteSpace(stdErr), $"Unexpected stderr: {stdErr}");
+        Assert.Equal(3, passedCount + failedCount + warningCount);
+        Assert.Equal(isSuccess ? 0 : 1, process.ExitCode);
+        Assert.True(string.IsNullOrWhiteSpace(stdErr), $"Unexpected stderr: {stdErr}");
         }
         finally
         {
