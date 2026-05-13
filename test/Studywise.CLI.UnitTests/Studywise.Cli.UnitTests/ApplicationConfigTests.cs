@@ -5,7 +5,7 @@ namespace Studywise.CLI.UnitTests;
 public class ApplicationConfigTests
 {
     [Fact]
-    public async Task FromEnvironment_UsesApiKeyFromConfigWhenApiKeyIsPresent()
+    public async Task FromEnvironment_UsesApiKeyFromEnvironmentWhenConfigContainsApiKey()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
@@ -18,7 +18,7 @@ public class ApplicationConfigTests
 
             var config = ApplicationConfig.FromEnvironment(configPath);
 
-            Assert.Equal("config-key", config.ApiKey);
+            Assert.Equal("env-key", config.ApiKey);
         }
         finally
         {
@@ -33,7 +33,7 @@ public class ApplicationConfigTests
     }
 
     [Fact]
-    public async Task FromEnvironment_UsesSnakeCaseApiKeyWhenCamelCaseIsMissing()
+    public async Task FromEnvironment_UsesApiKeyFromEnvironmentWhenConfigContainsSnakeCaseApiKey()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
@@ -46,7 +46,7 @@ public class ApplicationConfigTests
 
             var config = ApplicationConfig.FromEnvironment(configPath);
 
-            Assert.Equal("snake-key", config.ApiKey);
+            Assert.Equal("env-key", config.ApiKey);
         }
         finally
         {

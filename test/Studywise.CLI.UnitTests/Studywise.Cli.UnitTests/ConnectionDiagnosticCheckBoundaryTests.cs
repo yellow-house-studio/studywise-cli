@@ -106,4 +106,61 @@ public class ConnectionDiagnosticCheckBoundaryTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(responder(request));
     }
+
+    [Fact]
+    public async Task RunAsync_WithUnauthorizedResponse_ReturnsApiKeyInvalidMessage()
+    {
+        using var httpClient = new HttpClient(new StaticResponseHandler(HttpStatusCode.Unauthorized))
+        {
+            BaseAddress = new Uri("https://example.com")
+        };
+
+        var check = new ConnectionDiagnosticCheck(CreateMockFactory(httpClient));
+        var result = await check.RunAsync();
+
+        Assert.Equal(DiagnosticStatus.Fail, result.Status);
+        Assert.Equal("API-nyckel ogiltig eller återkallad. Kontrollera STUDYWISE_API_KEY.", result.Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithForbiddenResponse_ReturnsWrongFamilyMessage()
+    {
+        using var httpClient = new HttpClient(new StaticResponseHandler(HttpStatusCode.Forbidden))
+        {
+            BaseAddress = new Uri("https://example.com")
+        };
+
+        var check = new ConnectionDiagnosticCheck(CreateMockFactory(httpClient));
+        var result = await check.RunAsync();
+
+        Assert.Equal(DiagnosticStatus.Fail, result.Status);
+        Assert.Equal("API-nyckel inte giltig för denna familj. Kontrollera STUDYWISE_API_KEY.", result.Message);
+    }
+
+    [Fact]
+    public async Task RunAsync_WithMissingApiKeyFailure_ReturnsMissingKeyMessage()
+    {
+        using var httpClient = new HttpClient(new ThrowingHandler(new InvalidOperationException("API-nyckel saknas. Sätt STUDYWISE_API_KEY.")))
+        {
+            BaseAddress = new Uri("https://example.com")
+        };
+
+        var check = new ConnectionDiagnosticCheck(CreateMockFactory(httpClient));
+        var result = await check.RunAsync();
+
+        Assert.Equal(DiagnosticStatus.Fail, result.Status);
+        Assert.Equal("API-nyckel saknas. Sätt STUDYWISE_API_KEY.", result.Message);
+    }
+
+    private sealed class StaticResponseHandler(HttpStatusCode statusCode) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(statusCode));
+    }
+
+    private sealed class ThrowingHandler(Exception exception) : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromException<HttpResponseMessage>(exception);
+    }
 }

@@ -2,8 +2,8 @@ using System.CommandLine;
 using System.CommandLine.IO;
 using System.Net.Http;
 using System.Text.Json;
+using Studywise.Cli.Auth;
 using Studywise.Cli.Commands.Doctor;
-using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Xunit;
 
@@ -23,8 +23,8 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
-        var config = new ApplicationConfig { ApiKey = "test-key" };
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var tokenProvider = new ApiKeyTokenProvider("test-key");
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, tokenProvider);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -48,8 +48,8 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
-        var config = new ApplicationConfig();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var tokenProvider = new ApiKeyTokenProvider("test-key");
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, tokenProvider);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -71,8 +71,8 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
-        var config = new ApplicationConfig();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var tokenProvider = new ApiKeyTokenProvider("test-key");
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, tokenProvider);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(

@@ -1,4 +1,4 @@
-using Studywise.Cli.Configuration;
+using Studywise.Cli.Auth;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 
@@ -7,87 +7,51 @@ namespace Studywise.CLI.UnitTests;
 public class ApiKeyDiagnosticCheckTests
 {
     [Fact]
-    public async Task RunAsync_ReturnsPassWhenConfigContainsApiKey()
+    public async Task RunAsync_ReturnsPassWhenTokenProviderReturnsApiKey()
     {
-        await RunWithTemporaryConfigPathAsync(async configPath =>
-        {
-            await File.WriteAllTextAsync(configPath, "{\"apiKey\":\"test-key\"}");
-            var check = new ApiKeyDiagnosticCheck(configPath);
+        var check = new ApiKeyDiagnosticCheck(new ApiKeyTokenProvider("test-key"));
 
-            var result = await check.RunAsync();
+        var result = await check.RunAsync();
 
-            Assert.Equal("api-key", result.Name);
-            Assert.Equal(DiagnosticStatus.Pass, result.Status);
-            Assert.Equal("API-nyckel: OK — finns (maskerad)", result.Message);
-        });
+        Assert.Equal("api-key", result.Name);
+        Assert.Equal(DiagnosticStatus.Pass, result.Status);
+        Assert.Equal("API-nyckel: OK — finns (maskerad)", result.Message);
     }
 
     [Theory]
-    [InlineData("{\"apiKey\":\"\"}")]
-    [InlineData("{\"apiKey\":\" \"}")]
-    [InlineData("{\"apiKey\":\"   \"}")]
-    public async Task RunAsync_ReturnsFailWhenApiKeyInConfigIsEmptyOrWhitespace(string configContent)
+    [InlineData("")]
+    [InlineData(" ")]
+    [InlineData("   ")]
+    public async Task RunAsync_ReturnsFailWhenApiKeyIsEmptyOrWhitespace(string apiKey)
     {
-        await RunWithTemporaryConfigPathAsync(async configPath =>
-        {
-            await File.WriteAllTextAsync(configPath, configContent);
-            var check = new ApiKeyDiagnosticCheck(configPath);
+        var check = new ApiKeyDiagnosticCheck(new ApiKeyTokenProvider(apiKey));
 
-            var result = await check.RunAsync();
+        var result = await check.RunAsync();
 
-            Assert.Equal(DiagnosticStatus.Fail, result.Status);
-            Assert.Equal("API-nyckel: FAIL — saknas eller ar tom i config", result.Message);
-        });
+        Assert.Equal(DiagnosticStatus.Fail, result.Status);
+        Assert.Equal("API-nyckel: FAIL — saknas i environment variable", result.Message);
     }
 
     [Fact]
     public async Task RunAsync_ReturnsFailWhenApiKeyIsMissing()
     {
-        await RunWithTemporaryConfigPathAsync(async configPath =>
-        {
-            await File.WriteAllTextAsync(configPath, "{}");
-            var check = new ApiKeyDiagnosticCheck(configPath);
+        var check = new ApiKeyDiagnosticCheck(new ApiKeyTokenProvider(string.Empty));
 
-            var result = await check.RunAsync();
+        var result = await check.RunAsync();
 
-            Assert.Equal(DiagnosticStatus.Fail, result.Status);
-            Assert.Equal("API-nyckel: FAIL — saknas eller ar tom i config", result.Message);
-        });
+        Assert.Equal(DiagnosticStatus.Fail, result.Status);
+        Assert.Equal("API-nyckel: FAIL — saknas i environment variable", result.Message);
     }
 
     [Fact]
     public async Task RunAsync_NeverLeaksApiKeyValueInMessage()
     {
-        await RunWithTemporaryConfigPathAsync(async configPath =>
-        {
-            const string secretValue = "super-secret-key";
-            await File.WriteAllTextAsync(configPath, $"{{\"apiKey\":\"{secretValue}\"}}");
-            var check = new ApiKeyDiagnosticCheck(configPath);
+        const string secretValue = "super-secret-key";
+        var check = new ApiKeyDiagnosticCheck(new ApiKeyTokenProvider(secretValue));
 
-            var result = await check.RunAsync();
+        var result = await check.RunAsync();
 
-            Assert.DoesNotContain(secretValue, result.Message, StringComparison.Ordinal);
-            Assert.Contains("maskerad", result.Message, StringComparison.Ordinal);
-        });
-    }
-
-    private static async Task RunWithTemporaryConfigPathAsync(Func<string, Task> testAction)
-    {
-        var temporaryDirectory = Path.Combine(Path.GetTempPath(), $"studywise-tests-{Guid.NewGuid():N}");
-        var configPath = Path.Combine(temporaryDirectory, "config.json");
-
-        Directory.CreateDirectory(temporaryDirectory);
-
-        try
-        {
-            await testAction(configPath);
-        }
-        finally
-        {
-            if (Directory.Exists(temporaryDirectory))
-            {
-                Directory.Delete(temporaryDirectory, recursive: true);
-            }
-        }
+        Assert.DoesNotContain(secretValue, result.Message, StringComparison.Ordinal);
+        Assert.Contains("maskerad", result.Message, StringComparison.Ordinal);
     }
 }
