@@ -12,10 +12,6 @@ public class DoctorCommandE2ETests
 
         var dotnetPath = GetDotnetPath();
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
-        var tempDirectory = Path.Combine(Path.GetTempPath(), $"studywise-tests-{Guid.NewGuid():N}");
-        var configPath = Path.Combine(tempDirectory, "config.json");
-        Directory.CreateDirectory(tempDirectory);
-        File.WriteAllText(configPath, "{\"apiKey\":\"test-key\"}");
 
         var configDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
@@ -26,7 +22,7 @@ public class DoctorCommandE2ETests
         var configExisted = File.Exists(configPath);
         if (!configExisted)
         {
-            File.WriteAllText(configPath, "{}");
+            File.WriteAllText(configPath, "{\"apiKey\":\"test-key\"}");
         }
 
         try
@@ -41,7 +37,6 @@ public class DoctorCommandE2ETests
                 WorkingDirectory = repoRoot
             };
 
-            startInfo.Environment["STUDYWISE_API_KEY"] = "test-key";
             startInfo.Environment["STUDYWISE_API_BASE_URL"] = "http://127.0.0.1:8000";
 
             using var process = Process.Start(startInfo);
