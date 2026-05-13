@@ -22,7 +22,7 @@ public class DoctorCommandE2ETests
         var configExisted = File.Exists(configPath);
         if (!configExisted)
         {
-            File.WriteAllText(configPath, "{}");
+            File.WriteAllText(configPath, "{\"apiKey\":\"test-key\"}");
         }
 
         try
@@ -37,7 +37,6 @@ public class DoctorCommandE2ETests
                 WorkingDirectory = repoRoot
             };
 
-            startInfo.Environment["STUDYWISE_API_KEY"] = "test-key";
             startInfo.Environment["STUDYWISE_API_BASE_URL"] = "http://127.0.0.1:8000";
 
             using var process = Process.Start(startInfo);

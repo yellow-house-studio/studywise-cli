@@ -94,16 +94,17 @@ public class DoctorCommandIntegrationTests
     {
         var previousBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
+        var previousConfigPath = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
 
-        var configDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config",
-            "studywise");
+        var configDirectory = Path.Combine(Path.GetTempPath(), $"studywise-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDirectory);
 
         var configPath = Path.Combine(configDirectory, "config.json");
-        var configExisted = File.Exists(configPath);
-        if (!configExisted)
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            await File.WriteAllTextAsync(configPath, $"{{\"apiKey\":\"{apiKey}\"}}");
+        }
+        else
         {
             await File.WriteAllTextAsync(configPath, "{}");
         }
@@ -117,12 +118,12 @@ public class DoctorCommandIntegrationTests
         {
             Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", apiBaseUrl);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", apiKey);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", configPath);
 
-            var config = ApplicationConfig.FromEnvironment();
             var checks = new IDiagnosticCheck[]
             {
                 new ConfigDiagnosticCheck(),
-                new ApiKeyDiagnosticCheck(config),
+                new ApiKeyDiagnosticCheck(),
                 new ConnectionDiagnosticCheck(httpClientFactory)
             };
 
@@ -132,10 +133,11 @@ public class DoctorCommandIntegrationTests
         {
             Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", previousBaseUrl);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", previousConfigPath);
 
-            if (!configExisted && File.Exists(configPath))
+            if (Directory.Exists(configDirectory))
             {
-                File.Delete(configPath);
+                Directory.Delete(configDirectory, recursive: true);
             }
         }
     }
