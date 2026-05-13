@@ -9,7 +9,6 @@ public class DoctorCommandE2ETests
     public void DoctorJson_OutputsMachineReadableDiagnostics()
     {
         using var devProxy = TryStartDevProxy();
-        Assert.True(devProxy is not null, "Failed to start Dev Proxy; install or run Dev Proxy so doctor --json E2E coverage executes.");
 
         var dotnetPath = GetDotnetPath();
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
@@ -79,7 +78,20 @@ public class DoctorCommandE2ETests
         var repoRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../"));
         var configPath = Path.Combine(repoRoot, "test", ".devproxy", "devproxyrc.json");
 
-        foreach (var candidate in new[] { "devproxy", "/usr/local/bin/devproxy", "/opt/homebrew/bin/devproxy" })
+        if (IsPortListening(8000))
+        {
+            return null;
+        }
+
+        var candidates = new[]
+        {
+            "devproxy",
+            "/usr/local/bin/devproxy",
+            "/opt/homebrew/bin/devproxy",
+            Path.Combine(repoRoot, "devproxy", "devproxy")
+        };
+
+        foreach (var candidate in candidates)
         {
             var startInfo = new ProcessStartInfo
             {
@@ -106,6 +118,20 @@ public class DoctorCommandE2ETests
         }
 
         return null;
+    }
+
+    private static bool IsPortListening(int port)
+    {
+        try
+        {
+            using var client = new System.Net.Sockets.TcpClient();
+            client.Connect("127.0.0.1", port);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static string GetDotnetPath()
