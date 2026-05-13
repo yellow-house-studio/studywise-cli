@@ -56,6 +56,18 @@ public sealed class ApplicationConfig
         {
             return string.Empty;
         }
+        catch (UnauthorizedAccessException)
+        {
+            return string.Empty;
+        }
+        catch (IOException)
+        {
+            return string.Empty;
+        }
+        catch (OperationCanceledException)
+        {
+            return string.Empty;
+        }
     }
 
     public static string GetConfigPath(string? configPathOverride = null)
@@ -63,6 +75,12 @@ public sealed class ApplicationConfig
         if (!string.IsNullOrWhiteSpace(configPathOverride))
         {
             return configPathOverride;
+        }
+
+        var legacyConfigPathFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG");
+        if (!string.IsNullOrWhiteSpace(legacyConfigPathFromEnvironment))
+        {
+            return legacyConfigPathFromEnvironment;
         }
 
         var configPathFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");

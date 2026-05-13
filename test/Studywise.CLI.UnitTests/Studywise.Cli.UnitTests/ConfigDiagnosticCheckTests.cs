@@ -135,7 +135,8 @@ public class ConfigDiagnosticCheckTests : IDisposable
     [Fact]
     public async Task RunAsync_NonexistentConfigPathFromEnv_FailsWithPathInMessage()
     {
-        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", Path.Combine(Path.GetTempPath(), "nonexistent_studywise_config_" + Guid.NewGuid()));
+        var configPath = Path.Combine(Path.GetTempPath(), "nonexistent_studywise_config_" + Guid.NewGuid());
+        Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", configPath);
         var check = new ConfigDiagnosticCheck();
         var result = await check.RunAsync();
 
@@ -143,7 +144,6 @@ public class ConfigDiagnosticCheckTests : IDisposable
         Assert.Contains("missing", result.Message, StringComparison.OrdinalIgnoreCase);
 
         // Verify the resolved path is the env var path (not the platform default)
-        var expectedPath = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
-        Assert.Contains(expectedPath, result.Message);
+        Assert.Contains(configPath, result.Message);
     }
 }
