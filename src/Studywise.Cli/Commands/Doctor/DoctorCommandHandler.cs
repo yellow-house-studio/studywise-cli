@@ -22,17 +22,36 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
         _ = config;
     }
 
+    private IDiagnosticCheck[]? ResolveChecks(string checkName)
+    {
+        return checkName.ToLowerInvariant() switch
+        {
+            "all" => new IDiagnosticCheck[]
+            {
+                new ConfigDiagnosticCheck(),
+                new ApiKeyDiagnosticCheck(),
+                new ConnectionDiagnosticCheck(_httpClientFactory)
+            },
+            "config" => new[] { new ConfigDiagnosticCheck() },
+            "api-key" => new[] { new ApiKeyDiagnosticCheck() },
+            "connection" => new[] { new ConnectionDiagnosticCheck(_httpClientFactory) },
+            _ => null
+        };
+    }
+
     public async Task<int> HandleAsync(
         DoctorCommandOptions options,
         IConsole console,
         CancellationToken cancellationToken)
     {
-        var checks = new IDiagnosticCheck[]
+        IDiagnosticCheck[]? checks = ResolveChecks(options.CheckName);
+        if (checks is null)
         {
-            new ConfigDiagnosticCheck(),
-            new ApiKeyDiagnosticCheck(),
-            new ConnectionDiagnosticCheck(_httpClientFactory)
-        };
+            var err = console.Error;
+            err.Write($"unknown check: {options.CheckName}");
+            err.Write(Environment.NewLine);
+            return 1;
+        }
 
         var report = await _runner.RunAsync(checks, cancellationToken);
 
