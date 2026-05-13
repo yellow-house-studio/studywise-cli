@@ -105,20 +105,42 @@ public class DoctorCommandIntegrationTests
         Assert.Single(server.LogEntries);
     }
 
+    [Fact]
+    public async Task Doctor_ConnectionCheck_FailsWhenHealthRedirectsMoreThanOnce()
+    {
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/health").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(302).WithHeader("Location", "/redirect-1"));
+        server
+            .Given(Request.Create().WithPath("/redirect-1").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(302).WithHeader("Location", "/redirect-2"));
+        server
+            .Given(Request.Create().WithPath("/redirect-2").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(200));
+
+        var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
+        var connection = report.Checks.Single(check => check.Name == "connection");
+
+        Assert.Equal(DiagnosticStatus.Fail, connection.Status);
+        Assert.Contains("/health returned 302", connection.Message);
+    }
+
     private static async Task<DiagnosticReport> RunDoctorDiagnosticsAsync(string apiBaseUrl, string? apiKey = null)
     {
         var previousBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
+        var previousConfigPath = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
 
-        var configDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config",
-            "studywise");
+        var configDirectory = Path.Combine(Path.GetTempPath(), $"studywise-tests-{Guid.NewGuid():N}");
         Directory.CreateDirectory(configDirectory);
 
         var configPath = Path.Combine(configDirectory, "config.json");
-        var configExisted = File.Exists(configPath);
-        if (!configExisted)
+        if (!string.IsNullOrWhiteSpace(apiKey))
+        {
+            await File.WriteAllTextAsync(configPath, $"{{\"apiKey\":\"{apiKey}\"}}");
+        }
+        else
         {
             await File.WriteAllTextAsync(configPath, "{}");
         }
@@ -127,6 +149,11 @@ public class DoctorCommandIntegrationTests
         var tokenProvider = new ApiKeyTokenProvider(apiKey ?? string.Empty);
         services.AddTransient<ApiKeyDelegatingHandler>(_ => new ApiKeyDelegatingHandler(tokenProvider));
         services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+            {
+                AllowAutoRedirect = true,
+                MaxAutomaticRedirections = 1
+            })
             .AddHttpMessageHandler<ApiKeyDelegatingHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
@@ -135,6 +162,7 @@ public class DoctorCommandIntegrationTests
         {
             Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", apiBaseUrl);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", apiKey);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", configPath);
 
             var tokenProviderForChecks = new ApiKeyTokenProvider(apiKey ?? string.Empty);
             var checks = new IDiagnosticCheck[]
@@ -150,10 +178,11 @@ public class DoctorCommandIntegrationTests
         {
             Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", previousBaseUrl);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", previousConfigPath);
 
-            if (!configExisted && File.Exists(configPath))
+            if (Directory.Exists(configDirectory))
             {
-                File.Delete(configPath);
+                Directory.Delete(configDirectory, recursive: true);
             }
         }
     }

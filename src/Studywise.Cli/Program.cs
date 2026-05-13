@@ -20,6 +20,11 @@ services.AddHttpClient(StudywiseDefaults.ApiName, client =>
     client.BaseAddress = new Uri(config.ApiBaseUrl);
     client.DefaultRequestHeaders.Add("User-Agent", config.UserAgent);
 })
+    .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+    {
+        AllowAutoRedirect = true,
+        MaxAutomaticRedirections = 1
+    })
     .AddHttpMessageHandler<ApiKeyDelegatingHandler>();
 
 services.AddSingleton(config);

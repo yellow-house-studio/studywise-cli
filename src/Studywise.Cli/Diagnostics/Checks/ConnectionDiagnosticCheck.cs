@@ -6,6 +6,7 @@ namespace Studywise.Cli.Diagnostics.Checks;
 public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFactory) : IDiagnosticCheck
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
+    private const int TimeoutSeconds = 5;
 
     public string Name => "connection";
 
@@ -34,8 +35,26 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
 
             return new DiagnosticCheckResult(
                 Name,
-                DiagnosticStatus.Warn,
-                $"Connection: WARN — /health returned {(int)response.StatusCode}");
+                DiagnosticStatus.Fail,
+                $"Connection: FAIL — /health returned {(int)response.StatusCode}");
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (TaskCanceledException)
+        {
+            return new DiagnosticCheckResult(
+                Name,
+                DiagnosticStatus.Fail,
+                $"Connection: FAIL — timeout after {TimeoutSeconds}s reaching /health");
+        }
+        catch (HttpRequestException ex)
+        {
+            return new DiagnosticCheckResult(
+                Name,
+                DiagnosticStatus.Fail,
+                $"Connection: FAIL — could not reach /health ({ex.GetType().Name})");
         }
         catch (InvalidOperationException ex) when (ex.Message == "API-nyckel saknas. Sätt STUDYWISE_API_KEY.")
         {
@@ -43,7 +62,10 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
         }
         catch (Exception ex)
         {
-            return new DiagnosticCheckResult(Name, DiagnosticStatus.Warn, $"Connection: WARN — could not reach /health ({ex.GetType().Name})");
+            return new DiagnosticCheckResult(
+                Name,
+                DiagnosticStatus.Fail,
+                $"Connection: FAIL — could not reach /health ({ex.GetType().Name})");
         }
     }
 }

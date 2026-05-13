@@ -1,0 +1,90 @@
+name: Update coverage baseline
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit SHA to find CI Full run for
+        required: false
+        type: string
+      run_id:
+        description: Directly specify CI Full run ID
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  update-baseline-on-merge:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+
+      - name: Resolve CI Full run id
+        id: find-run
+        env:
+          TARGET_SHA: ${{ github.event.pull_request.head.sha }}
+          INPUT_SHA: ${{ inputs.sha }}
+          INPUT_RUN_ID: ${{ inputs.run_id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "$INPUT_RUN_ID" ]; then
+            run_id="$INPUT_RUN_ID"
+          else
+            sha="$TARGET_SHA"
+            if [ -n "$INPUT_SHA" ]; then
+              sha="$INPUT_SHA"
+            fi
+            run_id=$(gh api "repos/${{ github.repository }}/actions/runs?head_sha=$sha&status=completed" --jq '.workflow_runs[] | select(.name == "CI Full") | .id' | head -1)
+          fi
+
+          if [ -z "$run_id" ]; then
+            echo "No CI Full run found"
+            exit 1
+          fi
+
+          echo "run_id=$run_id" >> "$GITHUB_OUTPUT"
+
+      - name: Download coverage summary artifact
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          artifact_id=$(gh api "repos/${{ github.repository }}/actions/runs/${{ steps.find-run.outputs.run_id }}/artifacts" --jq '.artifacts[] | select(.name=="coverage-summary") | .id')
+          if [ -z "$artifact_id" ]; then
+            echo "coverage-summary artifact not found"
+            exit 1
+          fi
+          gh api "repos/${{ github.repository }}/actions/artifacts/$artifact_id/zip" > coverage-summary.zip
+          unzip -o coverage-summary.zip -d coverage
+
+      - name: Update baseline file
+        id: baseline
+        run: |
+          coverage=$(python3 -c 'import json; print(json.load(open("coverage/coverage-summary.json"))["minimumCoverage"])')
+          today=$(date +%Y-%m-%d)
+          commit_short="${GITHUB_SHA:0:7}"
+          printf '{"minimumCoverage": %s, "lastUpdated": "%s", "commit": "%s"}\n' "$coverage" "$today" "$commit_short" > .github/coverage-baseline.json
+          echo "coverage=$coverage" >> "$GITHUB_OUTPUT"
+
+      - name: Commit updated baseline
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if git diff --quiet .github/coverage-baseline.json; then
+            echo "No baseline changes"
+            exit 0
+          fi
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .github/coverage-baseline.json
+          git commit -m "chore(ci): update coverage baseline to ${{ steps.baseline.outputs.coverage }}%"
+          git push
