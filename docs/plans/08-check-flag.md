@@ -20,7 +20,7 @@ Allow users to run only a specific diagnostic check via `studywise doctor --chec
 
 ## Files To Modify
 - `src/Studywise.Cli/Commands/Doctor/DoctorCommandOptions.cs` — add `CheckName` property
-- `src/Studywise.Cli/Commands/Doctor/DoctorCommand.cs` — add `--check` option
+- `src/Studywise.Cli/Commands/Doctor/DoctorCommand.cs` — add `--check` option and update `SetHandler` binding to include `CheckName`
 - `src/Studywise.Cli/Commands/Doctor/DoctorCommandHandler.cs` — filter checks by name
 
 ## Functional Requirements (WHAT)
@@ -49,15 +49,26 @@ Allow users to run only a specific diagnostic check via `studywise doctor --chec
 public sealed record DoctorCommandOptions(bool Json, string CheckName = "all");
 ```
 
-### CLI Option
+### CLI Option + Binding
 ```csharp
-// DoctorCommand.cs — add to the command:
+// DoctorCommand.cs:
 var checkOption = new Option<string>(
     name: "--check",
     description: "Which check to run: config, api-key, connection, or all (default)",
     getDefaultValue: () => "all");
 AddOption(checkOption);
+
+// CRITICAL: Update SetHandler binding to pass CheckName
+SetHandler(async (context, cancellationToken) =>
+{
+    var jsonOption = context.ParseResult.GetValueForOption(jsonOption_Option);
+    var checkName = context.ParseResult.GetValueForOption(checkOption);  // ← MUST be added
+    var options = new DoctorCommandOptions(jsonOption, checkName);
+    // ... rest of handler
+}, jsonOption, checkOption);  // ← checkOption MUST be included here
 ```
+
+⚠️ **Important:** `checkOption` must be passed to `SetHandler` AND `GetValueForOption(checkOption)` must be called, otherwise `--check` will silently be ignored.
 
 ### Handler Filtering
 ```csharp
@@ -99,8 +110,19 @@ if (checks is null)
 
 ### Verification
 - Build: `dotnet build`
-- Run unit tests: `dotnet test --filter "FullyQualifiedName~DoctorCommandHandlerTests"`
-- Run all tests: `dotnet test`
+- Handler unit tests: `dotnet test --filter "FullyQualifiedName~DoctorCommandHandlerTests"`
+- All tests: `dotnet test`
+- CLI binding tests (new): `dotnet test --filter "FullyQualifiedName~DoctorCommandTests"` — verify `--check config` binds `CheckName = "config"` to options
+
+**CLI manual verification:**
+```bash
+# Test binding — should run only config check
+dotnet run --project src/Studywise.Cli -- doctor --check config
+
+# Test unknown check — should show error and exit 1
+dotnet run --project src/Studywise.Cli -- doctor --check foo
+# Expected: "unknown check: foo" on stderr, exit code 1
+```
 
 ## Acceptance Criteria (GIVEN/WHEN/THEN)
 
