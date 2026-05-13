@@ -1,4 +1,4 @@
-using System.Runtime.InteropServices;
+using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
@@ -13,7 +13,7 @@ public sealed class ConfigDiagnosticCheck : IDiagnosticCheck
 
     public Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
-        var configPath = ResolveConfigPath();
+        var configPath = ApplicationConfig.GetConfigPath();
 
         if (File.Exists(configPath) || IsSymlink(configPath))
         {
@@ -46,29 +46,6 @@ public sealed class ConfigDiagnosticCheck : IDiagnosticCheck
         {
             return false;
         }
-    }
-
-    private static string ResolveConfigPath()
-    {
-        var envOverride = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG");
-        if (!string.IsNullOrEmpty(envOverride))
-        {
-            return envOverride;
-        }
-
-        return GetPlatformDefaultPath();
-    }
-
-    private static string GetPlatformDefaultPath()
-    {
-        if (OperatingSystem.IsWindows())
-        {
-            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
-            return Path.Combine(appData, "studywise", "config.json");
-        }
-
-        var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return Path.Combine(userProfile, ".config", "studywise", "config.json");
     }
 
     private static Task<DiagnosticCheckResult> CheckFileReadability(string configPath, string checkName, CancellationToken cancellationToken)

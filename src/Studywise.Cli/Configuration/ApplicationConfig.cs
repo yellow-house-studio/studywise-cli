@@ -8,10 +8,10 @@ public sealed class ApplicationConfig
     public string ApiKey { get; init; } = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY") ?? string.Empty;
     public string UserAgent { get; init; } = StudywiseDefaults.UserAgent;
     
-    public static ApplicationConfig FromEnvironment()
+    public static ApplicationConfig FromEnvironment(string? configPathOverride = null)
     {
         var apiBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
-        var apiKeyFromConfig = ReadApiKeyFromConfigFile();
+        var apiKeyFromConfig = ReadApiKeyFromConfigFile(configPathOverride);
         var apiKeyFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY") ?? string.Empty;
         
         return new ApplicationConfig
@@ -21,13 +21,9 @@ public sealed class ApplicationConfig
         };
     }
 
-    private static string ReadApiKeyFromConfigFile()
+    public static string ReadApiKeyFromConfigFile(string? configPathOverride = null)
     {
-        var configPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config",
-            "studywise",
-            "config.json");
+        var configPath = GetConfigPath(configPathOverride);
 
         if (!File.Exists(configPath))
         {
@@ -60,6 +56,26 @@ public sealed class ApplicationConfig
         {
             return string.Empty;
         }
+    }
+
+    public static string GetConfigPath(string? configPathOverride = null)
+    {
+        if (!string.IsNullOrWhiteSpace(configPathOverride))
+        {
+            return configPathOverride;
+        }
+
+        var configPathFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
+        if (!string.IsNullOrWhiteSpace(configPathFromEnvironment))
+        {
+            return configPathFromEnvironment;
+        }
+
+        return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+            ".config",
+            "studywise",
+            "config.json");
     }
 
     private static bool TryGetStringProperty(JsonElement source, string propertyName, out string value)

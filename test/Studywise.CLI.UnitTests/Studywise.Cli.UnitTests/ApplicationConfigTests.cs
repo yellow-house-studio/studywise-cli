@@ -9,21 +9,25 @@ public class ApplicationConfigTests
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
-        var originalConfig = File.Exists(configPath) ? await File.ReadAllTextAsync(configPath) : null;
 
         try
         {
-            EnsureConfigDirectoryExists();
+            EnsureConfigDirectoryExists(configPath);
             await File.WriteAllTextAsync(configPath, "{\"apiKey\":\"config-key\",\"api_key\":\"snake-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", "env-key");
 
-            var config = ApplicationConfig.FromEnvironment();
+            var config = ApplicationConfig.FromEnvironment(configPath);
 
             Assert.Equal("config-key", config.ApiKey);
         }
         finally
         {
-            await RestoreConfigFileAsync(configPath, originalConfig);
+            if (File.Exists(configPath))
+            {
+                File.Delete(configPath);
+            }
+
+            DeleteConfigDirectory(configPath);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
         }
     }
@@ -33,21 +37,25 @@ public class ApplicationConfigTests
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
-        var originalConfig = File.Exists(configPath) ? await File.ReadAllTextAsync(configPath) : null;
 
         try
         {
-            EnsureConfigDirectoryExists();
+            EnsureConfigDirectoryExists(configPath);
             await File.WriteAllTextAsync(configPath, "{\"api_key\":\"snake-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", "env-key");
 
-            var config = ApplicationConfig.FromEnvironment();
+            var config = ApplicationConfig.FromEnvironment(configPath);
 
             Assert.Equal("snake-key", config.ApiKey);
         }
         finally
         {
-            await RestoreConfigFileAsync(configPath, originalConfig);
+            if (File.Exists(configPath))
+            {
+                File.Delete(configPath);
+            }
+
+            DeleteConfigDirectory(configPath);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
         }
     }
@@ -57,21 +65,25 @@ public class ApplicationConfigTests
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
-        var originalConfig = File.Exists(configPath) ? await File.ReadAllTextAsync(configPath) : null;
 
         try
         {
-            EnsureConfigDirectoryExists();
+            EnsureConfigDirectoryExists(configPath);
             await File.WriteAllTextAsync(configPath, "{}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", "env-key");
 
-            var config = ApplicationConfig.FromEnvironment();
+            var config = ApplicationConfig.FromEnvironment(configPath);
 
             Assert.Equal("env-key", config.ApiKey);
         }
         finally
         {
-            await RestoreConfigFileAsync(configPath, originalConfig);
+            if (File.Exists(configPath))
+            {
+                File.Delete(configPath);
+            }
+
+            DeleteConfigDirectory(configPath);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
         }
     }
@@ -79,34 +91,26 @@ public class ApplicationConfigTests
     private static string GetConfigPath()
     {
         return Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config",
-            "studywise",
+            Path.GetTempPath(),
+            $"studywise-tests-{Guid.NewGuid():N}",
             "config.json");
     }
 
-    private static void EnsureConfigDirectoryExists()
+    private static void EnsureConfigDirectoryExists(string configPath)
     {
-        var configDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".config",
-            "studywise");
+        var configDirectory = Path.GetDirectoryName(configPath)!;
 
         Directory.CreateDirectory(configDirectory);
     }
 
-    private static async Task RestoreConfigFileAsync(string configPath, string? originalConfig)
+    private static void DeleteConfigDirectory(string configPath)
     {
-        if (originalConfig is null)
+        var configDirectory = Path.GetDirectoryName(configPath);
+        if (string.IsNullOrWhiteSpace(configDirectory) || !Directory.Exists(configDirectory))
         {
-            if (File.Exists(configPath))
-            {
-                File.Delete(configPath);
-            }
-
             return;
         }
 
-        await File.WriteAllTextAsync(configPath, originalConfig);
+        Directory.Delete(configDirectory, recursive: true);
     }
 }

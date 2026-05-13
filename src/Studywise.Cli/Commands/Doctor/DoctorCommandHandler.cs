@@ -11,7 +11,6 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
 {
     private readonly IDiagnosticRunner _runner;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly ApplicationConfig _config;
 
     public DoctorCommandHandler(
         IDiagnosticRunner runner,
@@ -20,7 +19,7 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
     {
         _runner = runner;
         _httpClientFactory = httpClientFactory;
-        _config = config;
+        _ = config;
     }
 
     public async Task<int> HandleAsync(
@@ -31,7 +30,7 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
         var checks = new IDiagnosticCheck[]
         {
             new ConfigDiagnosticCheck(),
-            new ApiKeyDiagnosticCheck(_config),
+            new ApiKeyDiagnosticCheck(),
             new ConnectionDiagnosticCheck(_httpClientFactory)
         };
 
