@@ -33,7 +33,7 @@ Allow users to run only a specific diagnostic check via `studywise doctor --chec
 - Unknown check name: output `unknown check: <name>` to stderr and exit with code 1
 
 ### 2) Check name resolution
-- Check names are case-sensitive
+- Check names are **case-insensitive** (e.g., `CONFIG`, `Config`, `config` all work)
 - Valid check names: `config`, `api-key`, `connection`, `all`
 - The option accepts a single string value
 
@@ -73,33 +73,40 @@ SetHandler(async (context, cancellationToken) =>
 ### Handler Filtering
 ```csharp
 // DoctorCommandHandler.cs — in HandleAsync:
-var allChecks = new IDiagnosticCheck[]
-{
-    new ConfigDiagnosticCheck(),
-    new ApiKeyDiagnosticCheck(),
-    new ApiKeyDiagnosticCheck(configPath),  // existing ctor
-    new ConnectionDiagnosticCheck(_httpClientFactory)
-};
+// Current three-check pattern (from existing code):
+// 0: ConfigDiagnosticCheck, 1: ApiKeyDiagnosticCheck, 2: ConnectionDiagnosticCheck
 
-// Resolve which checks to run
-var checks = options.CheckName.ToLowerInvariant() switch
+IDiagnosticCheck[]? ResolveChecks(string checkName)
 {
-    "all" => allChecks,
-    "config" => new[] { allChecks[0] },
-    "api-key" => new[] { allChecks[1] },
-    "connection" => new[] { allChecks[2] },
-    _ => throw new InvalidOperationException($"unknown check: {options.CheckName}")
-};
-```
+    var checks = checkName.ToLowerInvariant() switch
+    {
+        "all" => new IDiagnosticCheck[]
+        {
+            new ConfigDiagnosticCheck(),
+            new ApiKeyDiagnosticCheck(),
+            new ConnectionDiagnosticCheck(_httpClientFactory)
+        },
+        "config" => new[] { new ConfigDiagnosticCheck() },
+        "api-key" => new[] { new ApiKeyDiagnosticCheck() },
+        "connection" => new[] { new ConnectionDiagnosticCheck(_httpClientFactory) },
+        _ => null
+    };
+    return checks;
+}
 
-For unknown check names, write to stderr and return exit code 1 **before** running diagnostics:
-```csharp
-if (!new[] { "all", "config", "api-key", "connection" }.Contains(options.CheckName.ToLowerInvariant()))
+var checks = ResolveChecks(options.CheckName);
+if (checks is null)
 {
     console.Error.WriteLine($"unknown check: {options.CheckName}");
     return 1;
 }
 ```
+
+**Key design decisions:**
+- Case-insensitive matching via `ToLowerInvariant()`
+- Single validation path: `null` return → stderr + exit 1 (no exception thrown)
+- No duplication of checks in the array — three distinct checks map to three distinct names
+- Unknown check validated before any diagnostic runs (fail-fast)
 
 ### Verification
 - Build: `dotnet build`
