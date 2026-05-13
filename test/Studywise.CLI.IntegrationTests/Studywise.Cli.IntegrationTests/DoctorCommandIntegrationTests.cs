@@ -1,7 +1,7 @@
 using System.Net.Http;
 using System.Text.Json;
 using Microsoft.Extensions.DependencyInjection;
-using Studywise.Cli.Configuration;
+using Studywise.Cli.Auth;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
@@ -86,8 +86,23 @@ public class DoctorCommandIntegrationTests
         var output = new TextDiagnosticReportFormatter().Format(report);
 
         Assert.False(report.IsSuccess);
-        Assert.Equal(1, report.FailedCount);
+        Assert.Equal(2, report.FailedCount);
         Assert.Contains("API-nyckel: FAIL", output);
+        Assert.Contains("API-nyckel saknas. Sätt STUDYWISE_API_KEY.", output);
+    }
+
+    [Fact]
+    public async Task Doctor_ConnectionCheck_SendsXApiKeyHeader()
+    {
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/health").UsingGet().WithHeader("X-Api-Key", "test-key"))
+            .RespondWith(Response.Create().WithStatusCode(200));
+
+        var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
+
+        Assert.True(report.IsSuccess);
+        Assert.Single(server.LogEntries);
     }
 
     private static async Task<DiagnosticReport> RunDoctorDiagnosticsAsync(string apiBaseUrl, string? apiKey = null)
@@ -109,7 +124,10 @@ public class DoctorCommandIntegrationTests
         }
 
         var services = new ServiceCollection();
-        services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl));
+        var tokenProvider = new ApiKeyTokenProvider(apiKey ?? string.Empty);
+        services.AddTransient<ApiKeyDelegatingHandler>(_ => new ApiKeyDelegatingHandler(tokenProvider));
+        services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl))
+            .AddHttpMessageHandler<ApiKeyDelegatingHandler>();
         var serviceProvider = services.BuildServiceProvider();
         var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
 
@@ -118,11 +136,11 @@ public class DoctorCommandIntegrationTests
             Environment.SetEnvironmentVariable("STUDYWISE_API_BASE_URL", apiBaseUrl);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", apiKey);
 
-            var config = ApplicationConfig.FromEnvironment();
+            var tokenProviderForChecks = new ApiKeyTokenProvider(apiKey ?? string.Empty);
             var checks = new IDiagnosticCheck[]
             {
                 new ConfigDiagnosticCheck(),
-                new ApiKeyDiagnosticCheck(config),
+                new ApiKeyDiagnosticCheck(tokenProviderForChecks),
                 new ConnectionDiagnosticCheck(httpClientFactory)
             };
 
