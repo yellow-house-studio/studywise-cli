@@ -49,7 +49,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         Assert.Equal("connection", result.Name);
         Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains($"/health returned {expectedCode}", result.Message);
+        Assert.Contains($"/api/families returned {expectedCode}", result.Message);
     }
 
     [Fact]
@@ -83,7 +83,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         Assert.Equal("connection", result.Name);
         Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains("could not reach /health", result.Message);
+        Assert.Contains("could not reach /api/families", result.Message);
         Assert.Contains("HttpRequestException", result.Message);
     }
 

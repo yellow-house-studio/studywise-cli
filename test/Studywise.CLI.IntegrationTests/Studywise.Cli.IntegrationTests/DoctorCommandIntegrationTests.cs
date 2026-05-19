@@ -19,7 +19,7 @@ public class DoctorCommandIntegrationTests
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/api/families").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
@@ -37,7 +37,7 @@ public class DoctorCommandIntegrationTests
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/api/families").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
@@ -79,7 +79,7 @@ public class DoctorCommandIntegrationTests
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/api/families").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!);
@@ -96,7 +96,7 @@ public class DoctorCommandIntegrationTests
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet().WithHeader("X-Api-Key", "test-key"))
+            .Given(Request.Create().WithPath("/api/families").UsingGet().WithHeader("X-Api-Key", "test-key"))
             .RespondWith(Response.Create().WithStatusCode(200));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
@@ -110,7 +110,7 @@ public class DoctorCommandIntegrationTests
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/api/families").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(302).WithHeader("Location", "/redirect-1"));
         server
             .Given(Request.Create().WithPath("/redirect-1").UsingGet())
@@ -123,7 +123,7 @@ public class DoctorCommandIntegrationTests
         var connection = report.Checks.Single(check => check.Name == "connection");
 
         Assert.Equal(DiagnosticStatus.Fail, connection.Status);
-        Assert.Contains("/health returned 302", connection.Message);
+        Assert.Contains("/api/families returned 302", connection.Message);
     }
 
     private static async Task<DiagnosticReport> RunDoctorDiagnosticsAsync(string apiBaseUrl, string? apiKey = null)
