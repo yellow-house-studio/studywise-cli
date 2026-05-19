@@ -22,8 +22,7 @@ services.AddHttpClient(StudywiseDefaults.ApiName, client =>
 })
     .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
     {
-        AllowAutoRedirect = true,
-        MaxAutomaticRedirections = 1
+        AllowAutoRedirect = false
     })
     .AddHttpMessageHandler<ApiKeyDelegatingHandler>();
 
