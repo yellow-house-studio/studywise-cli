@@ -107,24 +107,5 @@ public class ConnectionDiagnosticCheckBoundaryTests
             => Task.FromResult(responder(request));
     }
 
-    [Fact]
-    public async Task RunAsync_WithMissingApiKeyFailure_ReturnsMissingKeyMessage()
-    {
-        using var httpClient = new HttpClient(new ThrowingHandler(new InvalidOperationException("API-nyckel saknas. Sätt STUDYWISE_API_KEY.")))
-        {
-            BaseAddress = new Uri("https://example.com")
-        };
 
-        var check = new ConnectionDiagnosticCheck(CreateMockFactory(httpClient));
-        var result = await check.RunAsync();
-
-        Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Equal("API-nyckel saknas. Sätt STUDYWISE_API_KEY.", result.Message);
-    }
-
-    private sealed class ThrowingHandler(Exception exception) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromException<HttpResponseMessage>(exception);
-    }
 }

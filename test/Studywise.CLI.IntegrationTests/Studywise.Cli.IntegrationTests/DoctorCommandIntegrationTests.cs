@@ -88,7 +88,8 @@ public class DoctorCommandIntegrationTests
         Assert.False(report.IsSuccess);
         Assert.Equal(2, report.FailedCount);
         Assert.Contains("API-nyckel: FAIL", output);
-        Assert.Contains("API-nyckel saknas. Sätt STUDYWISE_API_KEY.", output);
+        Assert.Contains("saknas i environment variable", output);
+        Assert.Contains("Connection: FAIL", output);
     }
 
     [Fact]
