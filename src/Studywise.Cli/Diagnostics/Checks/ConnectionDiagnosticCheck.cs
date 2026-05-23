@@ -51,6 +51,10 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
         {
             return new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, ex.Message);
         }
+        catch (InvalidOperationException ex) when (ex.Message == "API-nyckel saknas. Sätt STUDYWISE_API_KEY.")
+        {
+            return new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, ex.Message);
+        }
         catch (Exception ex)
         {
             return new DiagnosticCheckResult(
