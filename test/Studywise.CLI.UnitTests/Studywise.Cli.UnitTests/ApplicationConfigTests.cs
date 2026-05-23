@@ -88,6 +88,62 @@ public class ApplicationConfigTests
         }
     }
 
+    [Fact]
+    public async Task FromEnvironment_FallsBackToConfigFileWhenEnvironmentVariableIsNotSet()
+    {
+        var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
+        var configPath = GetConfigPath();
+
+        try
+        {
+            EnsureConfigDirectoryExists(configPath);
+            await File.WriteAllTextAsync(configPath, "{\"apiKey\":\"config-key\"}");
+            Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", string.Empty);
+
+            var config = ApplicationConfig.FromEnvironment(configPath);
+
+            Assert.Equal("config-key", config.ApiKey);
+        }
+        finally
+        {
+            if (File.Exists(configPath))
+            {
+                File.Delete(configPath);
+            }
+
+            DeleteConfigDirectory(configPath);
+            Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
+        }
+    }
+
+    [Fact]
+    public async Task FromEnvironment_FallsBackToSnakeCaseConfigKeyWhenEnvironmentVariableIsNotSet()
+    {
+        var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
+        var configPath = GetConfigPath();
+
+        try
+        {
+            EnsureConfigDirectoryExists(configPath);
+            await File.WriteAllTextAsync(configPath, "{\"api_key\":\"snake-config-key\"}");
+            Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", string.Empty);
+
+            var config = ApplicationConfig.FromEnvironment(configPath);
+
+            Assert.Equal("snake-config-key", config.ApiKey);
+        }
+        finally
+        {
+            if (File.Exists(configPath))
+            {
+                File.Delete(configPath);
+            }
+
+            DeleteConfigDirectory(configPath);
+            Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
+        }
+    }
+
     private static string GetConfigPath()
     {
         return Path.Combine(

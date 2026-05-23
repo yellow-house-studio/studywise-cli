@@ -17,7 +17,7 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
 
         try
         {
-            using var response = await client.GetAsync("/api/families", cancellationToken);
+            using var response = await client.GetAsync("/health", cancellationToken);
             if ((int)response.StatusCode == 401)
             {
                 return new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel ogiltig eller återkallad. Kontrollera STUDYWISE_API_KEY.");
@@ -30,13 +30,13 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
 
             if (response.IsSuccessStatusCode)
             {
-                return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /api/families responded");
+                return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health responded");
             }
 
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Connection: FAIL — /api/families returned {(int)response.StatusCode}");
+                $"Connection: FAIL — /health returned {(int)response.StatusCode}");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -47,14 +47,14 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Connection: FAIL — timeout after {TimeoutSeconds}s reaching /api/families");
+                $"Connection: FAIL — timeout after {TimeoutSeconds}s reaching /health");
         }
         catch (HttpRequestException ex)
         {
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Connection: FAIL — could not reach /api/families ({ex.GetType().Name})");
+                $"Connection: FAIL — could not reach /health ({ex.GetType().Name})");
         }
         catch (InvalidOperationException ex) when (ex.Message == "API-nyckel saknas. Sätt STUDYWISE_API_KEY.")
         {
@@ -65,7 +65,7 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Connection: FAIL — could not reach /api/families ({ex.GetType().Name})");
+                $"Connection: FAIL — could not reach /health ({ex.GetType().Name})");
         }
     }
 }
