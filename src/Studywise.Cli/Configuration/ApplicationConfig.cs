@@ -12,12 +12,12 @@ public sealed class ApplicationConfig
     {
         var apiBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
         var apiKeyFromConfig = ReadApiKeyFromConfigFile(configPathOverride);
-        var apiKeyFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY") ?? string.Empty;
+        var apiKeyFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         
         return new ApplicationConfig
         {
             ApiBaseUrl = apiBaseUrl ?? StudywiseDefaults.ApiBaseUrl,
-            ApiKey = string.IsNullOrWhiteSpace(apiKeyFromConfig) ? apiKeyFromEnvironment : apiKeyFromConfig
+            ApiKey = apiKeyFromEnvironment ?? apiKeyFromConfig
         };
     }
 
