@@ -1,4 +1,5 @@
 using System.Net.Http;
+using System.Net;
 using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Diagnostics.Checks;
@@ -24,10 +25,17 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
                 return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health responded");
             }
 
+            var message = response.StatusCode switch
+            {
+                HttpStatusCode.Unauthorized => "Connection: FAIL — API-nyckel ogiltig eller återkallad. Kontrollera STUDYWISE_API_KEY.",
+                HttpStatusCode.Forbidden => "Connection: FAIL — API-nyckel inte giltig för denna familj. Kontrollera STUDYWISE_API_KEY.",
+                _ => $"Connection: FAIL — /health returned {(int)response.StatusCode}"
+            };
+
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Connection: FAIL — /health returned {(int)response.StatusCode}");
+                message);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
