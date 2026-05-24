@@ -29,7 +29,7 @@ public class ApiKeyDiagnosticCheckTests
         var result = await check.RunAsync();
 
         Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Equal("API-nyckel: FAIL — saknas i environment variable", result.Message);
+        Assert.Equal("API-nyckel: FAIL — saknas", result.Message);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public class ApiKeyDiagnosticCheckTests
         var result = await check.RunAsync();
 
         Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Equal("API-nyckel: FAIL — saknas i environment variable", result.Message);
+        Assert.Equal("API-nyckel: FAIL — saknas", result.Message);
     }
 
     [Fact]

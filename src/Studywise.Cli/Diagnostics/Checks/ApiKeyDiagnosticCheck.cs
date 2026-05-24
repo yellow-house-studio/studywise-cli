@@ -15,7 +15,7 @@ public sealed class ApiKeyDiagnosticCheck(ITokenProvider tokenProvider) : IDiagn
         }
         catch (InvalidOperationException)
         {
-            return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel: FAIL — saknas i environment variable"));
+            return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel: FAIL — saknas"));
         }
     }
 }
