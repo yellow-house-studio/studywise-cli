@@ -16,7 +16,7 @@ public class ApplicationConfigTests
             await File.WriteAllTextAsync(configPath, "{\"apiKey\":\"config-key\",\"api_key\":\"snake-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", "env-key");
 
-            var config = ApplicationConfig.FromEnvironment(configPath);
+            var config = ApplicationConfig.FromEnvironment();
 
             Assert.Equal("env-key", config.ApiKey);
         }
@@ -44,7 +44,7 @@ public class ApplicationConfigTests
             await File.WriteAllTextAsync(configPath, "{\"api_key\":\"snake-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", "env-key");
 
-            var config = ApplicationConfig.FromEnvironment(configPath);
+            var config = ApplicationConfig.FromEnvironment();
 
             Assert.Equal("env-key", config.ApiKey);
         }
@@ -72,7 +72,7 @@ public class ApplicationConfigTests
             await File.WriteAllTextAsync(configPath, "{}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", "env-key");
 
-            var config = ApplicationConfig.FromEnvironment(configPath);
+            var config = ApplicationConfig.FromEnvironment();
 
             Assert.Equal("env-key", config.ApiKey);
         }
@@ -100,7 +100,7 @@ public class ApplicationConfigTests
             await File.WriteAllTextAsync(configPath, "{\"apiKey\":\"config-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", string.Empty);
 
-            var config = ApplicationConfig.FromEnvironment(configPath);
+            var config = ApplicationConfig.FromEnvironment();
 
             Assert.Equal(string.Empty, config.ApiKey);
         }
@@ -128,7 +128,7 @@ public class ApplicationConfigTests
             await File.WriteAllTextAsync(configPath, "{\"api_key\":\"snake-config-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", string.Empty);
 
-            var config = ApplicationConfig.FromEnvironment(configPath);
+            var config = ApplicationConfig.FromEnvironment();
 
             Assert.Equal(string.Empty, config.ApiKey);
         }
