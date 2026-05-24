@@ -47,6 +47,10 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
                 DiagnosticStatus.Fail,
                 $"Connection: FAIL — could not reach /health ({ex.GetType().Name})");
         }
+        catch (InvalidOperationException ex) when (ex.Message == "API-nyckel saknas. Sätt STUDYWISE_API_KEY.")
+        {
+            return new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, ex.Message);
+        }
         catch (Exception ex)
         {
             return new DiagnosticCheckResult(
