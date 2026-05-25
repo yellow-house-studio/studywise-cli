@@ -19,6 +19,16 @@ public sealed class ConnectionDiagnosticCheck(IHttpClientFactory httpClientFacto
         {
             using var response = await client.GetAsync("/health", cancellationToken);
 
+            if ((int)response.StatusCode == 401)
+            {
+                return new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel ogiltig eller återkallad. Kontrollera STUDYWISE_API_KEY.");
+            }
+
+            if ((int)response.StatusCode == 403)
+            {
+                return new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel inte giltig för denna familj. Kontrollera STUDYWISE_API_KEY.");
+            }
+
             if (response.IsSuccessStatusCode)
             {
                 return new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "Connection: OK — /health responded");
