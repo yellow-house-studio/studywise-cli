@@ -89,7 +89,7 @@ public class ApplicationConfigTests
     }
 
     [Fact]
-    public async Task FromEnvironment_ReturnsEmptyApiKeyWhenEnvironmentVariableIsNotSetAndConfigHasCamelCaseApiKey()
+    public async Task FromEnvironment_FallsBackToConfigFileWhenEnvironmentVariableIsNotSetAndConfigHasCamelCaseApiKey()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
@@ -102,7 +102,7 @@ public class ApplicationConfigTests
 
             var config = ApplicationConfig.FromEnvironment();
 
-            Assert.Equal(string.Empty, config.ApiKey);
+            Assert.Equal("config-key", config.ApiKey);
         }
         finally
         {
@@ -117,7 +117,7 @@ public class ApplicationConfigTests
     }
 
     [Fact]
-    public async Task FromEnvironment_ReturnsEmptyApiKeyWhenEnvironmentVariableIsNotSetAndConfigHasSnakeCaseApiKey()
+    public async Task FromEnvironment_FallsBackToConfigFileWhenEnvironmentVariableIsNotSetAndConfigHasSnakeCaseApiKey()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
         var configPath = GetConfigPath();
@@ -130,7 +130,7 @@ public class ApplicationConfigTests
 
             var config = ApplicationConfig.FromEnvironment();
 
-            Assert.Equal(string.Empty, config.ApiKey);
+            Assert.Equal("snake-config-key", config.ApiKey);
         }
         finally
         {
