@@ -92,6 +92,7 @@ public class ApplicationConfigTests
     public async Task FromEnvironment_FallsBackToConfigFileWhenEnvironmentVariableIsNotSetAndConfigHasCamelCaseApiKey()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
+        var previousConfigPath = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
         var configPath = GetConfigPath();
 
         try
@@ -99,6 +100,7 @@ public class ApplicationConfigTests
             EnsureConfigDirectoryExists(configPath);
             await File.WriteAllTextAsync(configPath, "{\"apiKey\":\"config-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", string.Empty);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", configPath);
 
             var config = ApplicationConfig.FromEnvironment();
 
@@ -113,6 +115,7 @@ public class ApplicationConfigTests
 
             DeleteConfigDirectory(configPath);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", previousConfigPath);
         }
     }
 
@@ -120,6 +123,7 @@ public class ApplicationConfigTests
     public async Task FromEnvironment_FallsBackToConfigFileWhenEnvironmentVariableIsNotSetAndConfigHasSnakeCaseApiKey()
     {
         var previousApiKey = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY");
+        var previousConfigPath = Environment.GetEnvironmentVariable("STUDYWISE_CONFIG_PATH");
         var configPath = GetConfigPath();
 
         try
@@ -127,6 +131,7 @@ public class ApplicationConfigTests
             EnsureConfigDirectoryExists(configPath);
             await File.WriteAllTextAsync(configPath, "{\"api_key\":\"snake-config-key\"}");
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", string.Empty);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", configPath);
 
             var config = ApplicationConfig.FromEnvironment();
 
@@ -141,6 +146,7 @@ public class ApplicationConfigTests
 
             DeleteConfigDirectory(configPath);
             Environment.SetEnvironmentVariable("STUDYWISE_API_KEY", previousApiKey);
+            Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", previousConfigPath);
         }
     }
 
