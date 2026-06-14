@@ -17,7 +17,7 @@ public sealed class ApplicationConfig
         return new ApplicationConfig
         {
             ApiBaseUrl = apiBaseUrl ?? StudywiseDefaults.ApiBaseUrl,
-            ApiKey = string.IsNullOrWhiteSpace(apiKeyFromConfig) ? apiKeyFromEnvironment : apiKeyFromConfig
+            ApiKey = string.IsNullOrWhiteSpace(apiKeyFromEnvironment) ? apiKeyFromConfig : apiKeyFromEnvironment
         };
     }
 
@@ -107,6 +107,7 @@ public sealed class ApplicationConfig
         value = string.Empty;
         return false;
     }
+
 }
 
 public static class StudywiseDefaults

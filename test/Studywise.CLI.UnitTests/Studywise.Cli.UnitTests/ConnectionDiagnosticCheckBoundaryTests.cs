@@ -106,4 +106,6 @@ public class ConnectionDiagnosticCheckBoundaryTests
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             => Task.FromResult(responder(request));
     }
+
+
 }

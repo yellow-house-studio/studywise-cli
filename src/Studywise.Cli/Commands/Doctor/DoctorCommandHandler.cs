@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Studywise.Cli.Auth;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
@@ -11,15 +12,16 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
 {
     private readonly IDiagnosticRunner _runner;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly ITokenProvider _tokenProvider;
 
     public DoctorCommandHandler(
         IDiagnosticRunner runner,
         IHttpClientFactory httpClientFactory,
-        ApplicationConfig config)
+        ITokenProvider tokenProvider)
     {
         _runner = runner;
         _httpClientFactory = httpClientFactory;
-        _ = config;
+        _tokenProvider = tokenProvider;
     }
 
     private IDiagnosticCheck[]? ResolveChecks(string checkName)
@@ -29,11 +31,11 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
             "all" => new IDiagnosticCheck[]
             {
                 new ConfigDiagnosticCheck(),
-                new ApiKeyDiagnosticCheck(),
+                new ApiKeyDiagnosticCheck(_tokenProvider),
                 new ConnectionDiagnosticCheck(_httpClientFactory)
             },
             "config" => new[] { new ConfigDiagnosticCheck() },
-            "api-key" => new[] { new ApiKeyDiagnosticCheck() },
+            "api-key" => new[] { new ApiKeyDiagnosticCheck(_tokenProvider) },
             "connection" => new[] { new ConnectionDiagnosticCheck(_httpClientFactory) },
             _ => null
         };
