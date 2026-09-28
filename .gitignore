@@ -3,3 +3,5 @@ obj/
 *.user
 *.suo
 .vs/
+# Local CI script outputs
+TestResults/
