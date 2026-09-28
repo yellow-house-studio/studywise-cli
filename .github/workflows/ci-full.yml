@@ -99,15 +99,40 @@ jobs:
           config-file: .devproxy/devproxyrc.json
           auto-stop: true
 
+      # STUDYWISE_API_KEY gates E2E tests (Phase 6 of verify.sh). If the
+      # repo secret isn't configured yet, fall back to --scope=integration
+      # — runs every other gate (format, analyzers, gitleaks, actionlint,
+      # cspell, security scan, unit, integration, coverage merge + gate,
+      # baseline auto-raise) and gracefully skips E2E + post-PR comment.
+      # The fallback is loud: a `::warning::` annotation surfaces in the
+      # PR checks UI so the missing-secret state is visible.
+      - name: Detect STUDYWISE_API_KEY secret
+        if: needs.docs-only-check.outputs.docs_only != 'true'
+        id: api-key
+        run: |
+          if [ -n "$STUDYWISE_API_KEY" ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
+
       # verify.sh's pre-flight reads STUDYWISE_API_KEY from the shell or
       # ~/.secrets/studywise-cli.env. Passing it explicitly here from
       # the Actions secret pins the auth to the merge-event identity.
       - name: Run verify.sh --scope=full
-        if: needs.docs-only-check.outputs.docs_only != 'true'
+        if: needs.docs-only-check.outputs.docs_only != 'true' && steps.api-key.outputs.present == 'true'
         env:
           STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
           STUDYWISE_API_BASE_URL: ${{ steps.devproxy.outputs.proxy-url }}
         run: ./scripts/verify.sh --scope=full --no-fail-fast
+
+      - name: Run verify.sh --scope=integration (E2E skipped — STUDYWISE_API_KEY secret not configured)
+        if: needs.docs-only-check.outputs.docs_only != 'true' && steps.api-key.outputs.present == 'false'
+        run: |
+          echo "::warning::STUDYWISE_API_KEY secret not configured on this repo. Running --scope=integration (E2E + coverage gate + auto-raise skipped). Add the secret at https://github.com/${{ github.repository }}/settings/secrets/actions to enable full CI."
+          ./scripts/verify.sh --scope=integration --no-fail-fast
 
       - name: Upload test results on failure
         if: failure()
