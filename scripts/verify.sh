@@ -768,14 +768,19 @@ if [[ "$COVERAGE_XMLS" -gt 0 ]]; then
         # (`-reporttypes:Cobertura` → `Cobertura.xml`).
         COVERAGE_MERGED="$COVERAGE_DIR/Cobertura.xml"
         # ReportGenerator merges all *.cobertura.xml under the results
-        # dir into one deduplicated Cobertura.xml. The `-assemblyfilters:+Studywise.*`
+        # dir into one deduplicated Cobertura.xml. The `-assemblyfilters:+studywise*`
         # excludes third-party assemblies (Microsoft.*, System.*, etc.) that
         # Coverlet still emits — we only want our assemblies in the gate.
+        # CLI's assembly is named `studywise` (lowercase, per the
+        # <AssemblyName>studywise</AssemblyName> in Studywise.Cli.csproj). The
+        # asterisk matches future `studywise.X` sub-assemblies without a dot
+        # (the `+Studywise.*` form that api uses requires a literal dot,
+        # which the lowercase assembly name doesn't have).
         if reportgenerator \
                 -reports:"$RESULTS_DIR/**/coverage.cobertura.xml" \
                 -targetdir:"$COVERAGE_DIR" \
                 -reporttypes:"Cobertura" \
-                -assemblyfilters:"+Studywise.*" \
+                -assemblyfilters:"+studywise*" \
                 >"$MERGE_LOG" 2>&1; then
             if [[ -f "$COVERAGE_MERGED" ]]; then
                 # Strip trailing newlines from grep output (otherwise awk's -v
