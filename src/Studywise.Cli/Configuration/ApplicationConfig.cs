@@ -7,13 +7,13 @@ public sealed class ApplicationConfig
     public string ApiBaseUrl { get; init; } = StudywiseDefaults.ApiBaseUrl;
     public string ApiKey { get; init; } = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY") ?? string.Empty;
     public string UserAgent { get; init; } = StudywiseDefaults.UserAgent;
-    
+
     public static ApplicationConfig FromEnvironment(string? configPathOverride = null)
     {
         var apiBaseUrl = Environment.GetEnvironmentVariable("STUDYWISE_API_BASE_URL");
         var apiKeyFromConfig = ReadApiKeyFromConfigFile(configPathOverride);
         var apiKeyFromEnvironment = Environment.GetEnvironmentVariable("STUDYWISE_API_KEY") ?? string.Empty;
-        
+
         return new ApplicationConfig
         {
             ApiBaseUrl = apiBaseUrl ?? StudywiseDefaults.ApiBaseUrl,
