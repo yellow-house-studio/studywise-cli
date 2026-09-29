@@ -1,10 +1,36 @@
 name: CI Full
 
+# PR Full Gate — label-triggered heavy validation. Mirrors
+# studywise-api pr-gate-full.yml shape:
+#
+#   1. detect-changes       — label filter + docs-only classification
+#                             (early-exits the workflow if the label
+#                             isn't request-full-ci)
+#   2. build-and-test       — verify.sh --scope=full, gated on the
+#                             detect-changes outputs
+#
+# Trigger: `pull_request: types: [labeled]` with the
+# `request-full-ci` label. This replaces the previous
+# `pull_request_review: submitted` + `review.state == 'approved'`
+# pattern (which was non-standard and didn't match the api UX).
+# workflow_dispatch stays as an emergency escape hatch for
+# on-demand full CI runs against any ref.
+#
+# On every label change GitHub fires `labeled`; the detect-changes
+# script bails early if the new label isn't `request-full-ci`, so
+# adding any other label (e.g. `wip`, `ready-for-ci`) doesn't waste
+# runner minutes.
+
 on:
-  pull_request_review:
+  pull_request:
     types:
-      - submitted
+      - labeled
   workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR number to run the full gate against'
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -20,60 +46,91 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
-  docs-only-check:
-    if: github.event_name == 'pull_request_review' || github.event_name == 'workflow_dispatch'
+  detect-changes:
+    name: Detect changes
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
-      docs_only: ${{ steps.docs.outputs.docs_only }}
+      docs_only: ${{ steps.changes.outputs.docs_only }}
+      code_changed: ${{ steps.changes.outputs.code_changed }}
+      has_changes: ${{ steps.changes.outputs.has_changes }}
+
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout code
+        uses: actions/checkout@v5
         with:
           fetch-depth: 0
 
-      - name: Detect docs-only changes
-        id: docs
+      - name: Detect changed files + classify
+        id: changes
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            echo "Manual trigger - running full CI"
+            if [[ -n "${{ inputs.pr_number }}" ]]; then
+              echo "workflow_dispatch with pr_number=${{ inputs.pr_number }} - fetching diff via gh api"
+              changed_files="$(gh api "/repos/${{ github.repository }}/pulls/${{ inputs.pr_number }}/files" --jq '.[].filename' || true)"
+            else
+              echo "Manual trigger - running full CI"
+              changed_files="."
+            fi
+          elif [[ "${{ github.event.label.name }}" != "request-full-ci" ]]; then
+            echo "Label '${{ github.event.label.name }}' is not request-full-ci. Full gate not required. Exiting early."
+            {
+              echo "docs_only=true"
+              echo "code_changed=false"
+              echo "has_changes=false"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
           else
             base_sha="${{ github.event.pull_request.base.sha }}"
             head_sha="${{ github.event.pull_request.head.sha }}"
             changed_files="$(git diff --name-only "$base_sha" "$head_sha")"
-
-            if [ -z "$changed_files" ]; then
-              echo "docs_only=true" >> "$GITHUB_OUTPUT"
-            elif echo "$changed_files" | grep -qvE '(\.md$|docs/|\.txt$|\.cursor/skills/|\.opencode/skills/|\.codex/skills/)'; then
-              echo "docs_only=false" >> "$GITHUB_OUTPUT"
-            else
-              echo "docs_only=true" >> "$GITHUB_OUTPUT"
-            fi
           fi
+
+          echo "Changed files:"
+          printf '%s\n' "$changed_files"
+
+          if [[ -z "$changed_files" || "$changed_files" == "." ]]; then
+            {
+              echo "docs_only=false"
+              echo "code_changed=true"
+              echo "has_changes=true"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # Docs-only = every changed file is .md / docs/ / .txt /
+          # agent skill dir. Otherwise code-changed = true so the
+          # gate actually runs something.
+          if printf '%s\n' "$changed_files" | grep -qvE '(\.md$|docs/|\.txt$|\.cursor/skills/|\.opencode/skills/|\.codex/skills/)'; then
+            DOCS_ONLY="false"
+            CODE_CHANGED="true"
+            HAS_CHANGES="true"
+          else
+            DOCS_ONLY="true"
+            CODE_CHANGED="false"
+            HAS_CHANGES="false"
+          fi
+
+          {
+            echo "docs_only=$DOCS_ONLY"
+            echo "code_changed=$CODE_CHANGED"
+            echo "has_changes=$HAS_CHANGES"
+          } >> "$GITHUB_OUTPUT"
 
   build-and-test:
     name: Build and quality checks (full)
-    needs: [docs-only-check]
-    if: >-
-      (github.event_name == 'pull_request_review' &&
-      github.event.review.state == 'approved' &&
-      github.event.pull_request.base.ref == 'main') ||
-      (github.event_name == 'workflow_dispatch')
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
       - name: Checkout
-        if: needs.docs-only-check.outputs.docs_only != 'true'
         uses: actions/checkout@v5
         with:
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 1
 
-      - name: Skip - docs only
-        if: needs.docs-only-check.outputs.docs_only == 'true'
-        run: echo "Skipping CI - only docs changed"
-
       - name: Setup .NET
-        if: needs.docs-only-check.outputs.docs_only != 'true'
         uses: actions/setup-dotnet@v5
         with:
           dotnet-version: 10.0.x
@@ -81,18 +138,15 @@ jobs:
           cache-dependency-path: '**/*.csproj'
 
       - name: Install verify.sh prerequisites
-        if: needs.docs-only-check.outputs.docs_only != 'true'
         run: ./scripts/setup-env.sh
 
       - name: Copy Dev Proxy config
-        if: needs.docs-only-check.outputs.docs_only != 'true'
         run: |
           mkdir -p .devproxy
           cp test/.devproxy/devproxyrc.json .devproxy/
           cp test/.devproxy/studywise-health-mock.json .devproxy/
 
       - name: Setup Dev Proxy
-        if: needs.docs-only-check.outputs.docs_only != 'true'
         id: devproxy
         uses: dev-proxy-tools/actions/setup@v1
         with:
@@ -107,7 +161,6 @@ jobs:
       # The fallback is loud: a `::warning::` annotation surfaces in the
       # PR checks UI so the missing-secret state is visible.
       - name: Detect STUDYWISE_API_KEY secret
-        if: needs.docs-only-check.outputs.docs_only != 'true'
         id: api-key
         run: |
           if [ -n "$STUDYWISE_API_KEY" ]; then
@@ -118,20 +171,17 @@ jobs:
         env:
           STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
 
-      # verify.sh's pre-flight reads STUDYWISE_API_KEY from the shell or
-      # ~/.secrets/studywise-cli.env. Passing it explicitly here from
-      # the Actions secret pins the auth to the merge-event identity.
       - name: Run verify.sh --scope=full
-        if: needs.docs-only-check.outputs.docs_only != 'true' && steps.api-key.outputs.present == 'true'
+        if: steps.api-key.outputs.present == 'true'
         env:
           STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
           STUDYWISE_API_BASE_URL: ${{ steps.devproxy.outputs.proxy-url }}
         run: ./scripts/verify.sh --scope=full --no-fail-fast
 
       - name: Run verify.sh --scope=integration (E2E skipped — STUDYWISE_API_KEY secret not configured)
-        if: needs.docs-only-check.outputs.docs_only != 'true' && steps.api-key.outputs.present == 'false'
+        if: steps.api-key.outputs.present == 'false'
         run: |
-          echo "::warning::STUDYWISE_API_KEY secret not configured on this repo. Running --scope=integration (E2E + coverage gate + auto-raise skipped). Add the secret at https://github.com/${{ github.repository }}/settings/secrets/actions to enable full CI."
+          echo "::warning::STUDYWISE_API_KEY secret not configured on this repo. Running --scope=integration (E2E skipped). Add the secret at https://github.com/${{ github.repository }}/settings/secrets/actions to enable full CI."
           ./scripts/verify.sh --scope=integration --no-fail-fast
 
       - name: Upload test results on failure
