@@ -1,5 +1,23 @@
 name: CI Fast
 
+# PR-triggered fast gate. Mirrors studywise-api pr-gate-fast.yml: this
+# workflow is the local mirror of scripts/verify.sh --scope=fast and
+# nothing else. Format / analyzers / gitleaks / actionlint / cspell /
+# security scan / unit + integration + E2E tests are all phases of the
+# verify.sh invocation — no separate jobs so workflow-vs-script drift
+# is impossible.
+#
+# --scope=fast is identical to --scope=full in the CLI repo (xunit has
+# no Fast/LongRunning attribute pattern, see verify.sh docstring).
+# Running E2E on every PR is intentional: it's the single source of
+# truth for "is this branch mergeable?" without waiting for a labelled
+# request-full-ci run. STUDYWISE_API_KEY is REQUIRED — without it
+# verify.sh's pre-flight exits 2 before any phase runs.
+#
+# Branch name: branches: [main] matches studywise-cli/main (this repo).
+# studywise-api uses master; that's a repo difference, not a workflow
+# design choice.
+
 on:
   pull_request:
     branches:
@@ -8,6 +26,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
   workflow_dispatch:
 
 concurrency:
@@ -20,13 +39,13 @@ permissions:
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_SKIP_FIRST_TIME_EXPERIMENT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
   build-and-test:
     name: Build and quality checks (fast)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -42,20 +61,43 @@ jobs:
           cache-dependency-path: '**/*.csproj'
 
       - name: Install verify.sh prerequisites
+        # Installs gitleaks + actionlint (the two optional verify.sh
+        # tooling the script auto-skips when missing). cspell runs
+        # via npx — no separate install needed.
         run: ./scripts/setup-env.sh
 
-      - name: Run verify.sh --scope=integration
-        # `--scope=integration` runs every gate except the E2E phase +
-        # coverage gate + baseline auto-raise. PR Full Gate (ci-full.yml)
-        # handles those on PR approval. The fast path catches format
-        # drift, analyzer warnings, gitleaks leaks, actionlint errors,
-        # cspell misses, vulnerable packages, unit + integration
-        # failures — without the 5-10 min cost of the full coverage
-        # merge + gate.
-        #
-        # `--no-fail-fast` collects all phase failures into one summary
-        # (the fail-fast default would stop on the first broken phase).
-        run: ./scripts/verify.sh --scope=integration --no-fail-fast
+      - name: Copy Dev Proxy config
+        # Dev Proxy stands in for the Studywise API during E2E tests.
+        # The config files live under test/.devproxy/; the workflow
+        # runs them from .devproxy/ at repo root per dev-proxy-tools/
+        # actions/setup@v1 convention.
+        run: |
+          mkdir -p .devproxy
+          cp test/.devproxy/devproxyrc.json .devproxy/
+          cp test/.devproxy/studywise-health-mock.json .devproxy/
+
+      - name: Setup Dev Proxy
+        id: devproxy
+        uses: dev-proxy-tools/actions/setup@v1
+        with:
+          config-file: .devproxy/devproxyrc.json
+          auto-stop: true
+
+      # STUDYWISE_API_KEY gates the E2E phase of verify.sh (--scope=fast
+      # == full, which runs E2E). Pulled from the repo secret; passed
+      # to the script via env so verify.sh's pre-flight picks it up.
+      # STUDYWISE_API_BASE_URL points at the local Dev Proxy that the
+      # previous step started — without that override the E2E tests
+      # would hit the real Studywise API and fail with auth + scope
+      # errors.
+      - name: Run verify.sh --scope=fast
+        env:
+          STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
+          STUDYWISE_API_BASE_URL: ${{ steps.devproxy.outputs.proxy-url }}
+        # --no-fail-fast collects all phase failures into one summary
+        # (the fail-fast default would stop on the first broken phase
+        # and hide later failures behind the same red check).
+        run: ./scripts/verify.sh --scope=fast --no-fail-fast
 
       - name: Upload test results on failure
         if: failure()
