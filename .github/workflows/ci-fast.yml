@@ -45,13 +45,12 @@ jobs:
         run: ./scripts/setup-env.sh
 
       - name: Run verify.sh --scope=integration
-        # `--scope=integration` runs every gate except the E2E phase +
-        # coverage gate + baseline auto-raise. PR Full Gate (ci-full.yml)
-        # handles those on PR approval. The fast path catches format
-        # drift, analyzer warnings, gitleaks leaks, actionlint errors,
-        # cspell misses, vulnerable packages, unit + integration
-        # failures — without the 5-10 min cost of the full coverage
-        # merge + gate.
+        # `--scope=integration` runs every gate except coverage gate +
+        # baseline auto-raise. PR Full Gate (ci-full.yml) handles those
+        # on PR approval. The fast path catches format drift, analyzer
+        # warnings, gitleaks leaks, actionlint errors, cspell misses,
+        # vulnerable packages, unit + integration test failures —
+        # without the cost of the full coverage merge + gate.
         #
         # `--no-fail-fast` collects all phase failures into one summary
         # (the fail-fast default would stop on the first broken phase).
