@@ -39,10 +39,10 @@ jobs:
       # the "Commit updated baseline" step below no-ops on no diff.
       #
       # --scope=integration (not full) because the workflow runs on a
-      # generic ubuntu-latest runner — no Dev Proxy + no
-      # STUDYWISE_API_KEY — so E2E is intentionally out of scope here.
-      # The unit + integration coverage is the source-of-truth baseline
-      # input.
+      # generic ubuntu-latest runner — we don't need the coverage
+      # gate or the PR-comment overhead here, just the merge-time
+      # test run. The unit + integration coverage is the source-of-
+      # truth baseline input.
       #
       # --skip-coverage-gate because post-merge we're not gating — the
       # gate is informational here. The actual gate runs at PR time in
@@ -51,7 +51,7 @@ jobs:
       # --no-fail-fast so a coverage drop (which is informational
       # post-merge) doesn't block the auto-raise.
       - name: Run verify.sh --scope=integration
-        run: ./scripts/verify.sh --scope=integration --no-fail-fast --skip-e2e --skip-coverage-gate
+        run: ./scripts/verify.sh --scope=integration --no-fail-fast --skip-coverage-gate
 
       - name: Commit updated baseline
         env:

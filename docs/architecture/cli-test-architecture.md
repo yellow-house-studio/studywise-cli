@@ -1,7 +1,7 @@
 # Studywise CLI Architecture
 
 ## Status
-**Datum:** 2026-05-10
+**Datum:** 2026-09-29 (updated after NUnit + E2E-removal work)
 **Typ:** Arkitekturdokument
 **Projekt:** Studywise CLI
 
@@ -15,10 +15,14 @@ studywise-cli/
 ├── src/
 │   └── Studywise.Cli/                      # CLI application (System.CommandLine)
 └── test/
-    ├── Studywise.CLI.UnitTests/            # Unit tests
-    ├── Studywise.CLI.IntegrationTests/     # Integration tests (mocked HTTP)
-    └── Studywise.CLI.E2ETests/             # E2E: spawn actual CLI process
+    ├── Studywise.CLI.UnitTests/            # Unit tests (NUnit)
+    └── Studywise.CLI.IntegrationTests/     # Integration tests (NUnit + WireMock)
 ```
+
+> **Note:** A `Studywise.CLI.E2ETests` project existed historically and was
+> removed in commit `9a2c5a6` (issue #40). Per the YHS org test strategy,
+> E2E belongs in the frontend repo (Playwright). A CLI binary does not
+> have E2E in the org sense.
 
 > **Naming convention:** `Studywise.CLI.{TestType}` — product name + test type. No double "Tests".
 
@@ -68,7 +72,7 @@ public sealed class MyCommand
 | **`static Create()`** | Commands are stateless; no instance needed. Static factory follows CLI convention |
 | **No interface (`ICommandRegistration`)** | Unnecessary indirection. Attribute + static method is sufficient |
 | **DI via `BindingContext`** | System.CommandLine provides proper DI integration. Use `context.BindingContext.GetRequiredService<T>()` |
-| **E2E tests detect missing commands** | If a command lacks `Create()`, it won't appear in `--help` — E2E tests catch this |
+| **Integration tests detect missing DI registrations** | A `DoctorCommand` registered in `Program.cs` but with no `ICommandHandler<DoctorCommandOptions>` would throw at handler-resolution time — the existing `DoctorCommandHandlerTests` fixture catches this |
 
 ### Dependency Injection Pattern
 
@@ -90,36 +94,29 @@ command.SetHandler(async context =>
 var httpClient = CommandServices.GetHttpClient();
 ```
 
-### Auto-Registration Flow
+### Note on `AutoRegisterCommandAttribute`
 
-1. `Program.cs` scans assembly for types with `[AutoRegisterCommand]`
-2. For each type, calls `Create()` via reflection
-3. Returns `Command` is added to root command
-4. Service provider is available via `BindingContext` in handlers
+The `[AutoRegisterCommand]` attribute exists in the codebase but is
+**not currently used** — `Program.cs` does not scan the assembly for
+types with this attribute; it registers commands explicitly via the
+DI container:
 
 ```csharp
-var commandTypes = assembly.GetTypes()
-    .Where(t => t.IsClass 
-                && !t.IsAbstract 
-                && t.GetCustomAttributes(typeof(AutoRegisterCommandAttribute), false).Length > 0
-                && t.GetMethod("Create") != null);
-
-foreach (var type in commandTypes)
-{
-    var createMethod = type.GetMethod("Create");
-    var command = createMethod?.Invoke(null, null) as Command;
-    if (command != null)
-    {
-        rootCommand.AddCommand(command);
-    }
-}
+services.AddSingleton<Command, DoctorCommand>();
+services.AddTransient<ICommandHandler<DoctorCommandOptions>, DoctorCommandHandler>();
 ```
+
+The attribute is preserved as an extension point. If a future iteration
+implements reflection-based auto-discovery, the test layer should cover
+it with a fixture that registers a couple of dummy commands and asserts
+they appear in `--help`.
 
 ---
 
-## 3. Test Layers: Integration vs CLI E2E
+## 3. Test Layers: Unit vs Integration
 
-The two final test layers (IntegrationTests and E2ETests) are related but fundamentally different:
+The CLI repo has two test layers. There is no E2E layer for a CLI
+binary (see "Solution Structure" above for the historical note).
 
 ### IntegrationTests
 
@@ -151,67 +148,22 @@ public async Task ListEducationLevels_ReturnsFormattedTable()
 }
 ```
 
-### E2ETests (E2E — separate process)
+### Future: end-to-end CLI behavior
 
-**What it is:** Builds CLI and **spawns it as a separate process**. Verifies stdin/stdout/exit codes.
+The pre-2026-09 `Studywise.CLI.E2ETests` project did spawn the CLI as a
+separate process to verify `--help` text and exit codes. That layer
+was removed because per the YHS org test strategy, E2E belongs in
+the frontend repo (Playwright). For a CLI binary, the equivalent
+end-to-end coverage would be:
 
-**What it tests:**
-- CLI starts without crash
-- `--help` shows correct usage
-- Correct output format for list commands
-- Exit codes for error handling
-- Help text and command structure
-- Argument parsing in "production" mode
+- A future Playwright suite against a CLI-in-a-browser context
+  (e.g. via xterm.js + WebSocket bridge)
+- Or an `execute()`-style smoke test in CI that runs the compiled
+  binary with `--help` and asserts the exit code
 
-**Runs:** `Process.Start()` in test — CLI is compiled and run as `dotnet run` or built binary.
-
-**No HTTP** — this is pure smoke/sanity for CLI entry point.
-
-**Example:**
-```csharp
-[Fact]
-public void Help_Command_ExitsWithZero()
-{
-    // Arrange
-    var cliPath = GetCliBinPath(); // bin/Debug/net10.0/studywise
-    
-    using var process = new Process { StartInfo = new ProcessStartInfo
-    {
-        FileName = cliPath,
-        Arguments = "--help",
-        RedirectStandardOutput = true,
-        RedirectStandardError = true,
-        UseShellExecute = false
-    }};
-    
-    // Act
-    process.Start();
-    process.WaitForExit();
-    
-    // Assert
-    Assert.Equal(0, process.ExitCode);
-    Assert.Contains("Usage:", process.StandardOutput.ReadToEnd());
-}
-```
-
-### Comparison
-
-| Aspect | IntegrationTests | E2ETests |
-|--------|-----------------|----------|
-| Process | Same process as test | **Separate CLI process** |
-| HTTP | ✅ mocked | ❌ (no HTTP) |
-| Speed | Fast | Slightly slower |
-| What it verifies | Logic, parsing, mapping | **Actual CLI behavior** |
-| Can crash CLI | No | Yes (shell verification) |
-
-### Why separate projects?
-
-- **Different dependencies:** IntegrationTests needs `HttpClient` mocks. E2ETests only needs `dotnet build` + process start.
-- **Different environment requirements:** E2ETests needs CLI built first — IntegrationTests doesn't.
-- **Different stability profile:** A crashed CLI process doesn't affect IntegrationTests.
-- **Different test time:** E2ETests are slower (process spawn + build).
-
-**Decision:** E2ETests is a **separate project** alongside IntegrationTests.
+Neither is in scope today. The integration tests cover the handler
+logic end-to-end; the production `Program.cs` wiring is small enough
+that the missing E2E layer has low cost.
 
 ---
 
@@ -219,12 +171,14 @@ public void Help_Command_ExitsWithZero()
 
 | Question | Status | Comment |
 |----------|--------|---------|
-| Separate projects? | ✅ **Yes** | UnitTests, IntegrationTests, E2ETests — all own projects |
+| Separate projects? | ✅ **Yes** | UnitTests, IntegrationTests — one per layer |
 | Naming convention? | ✅ **`Studywise.CLI.{TestType}`** | Product name + test type, no double Tests |
-| E2ETests need API mock? | **No** | Help/Exit-code tests don't need HTTP |
-| Command pattern? | ✅ **Attribute + static Create()** | Auto-discovery, no interface needed |
+| E2E project for the CLI? | ❌ **No** | Per org strategy, E2E belongs in the frontend repo |
+| Test framework? | ✅ **NUnit 5 + FluentAssertions 7** | Matches Studywise-Api / SparkProgress. Latest stable commercial-friendly FluentAssertions (8.x is paid for commercial use). |
+| Mocking framework? | ✅ **Moq 4.21** | Same as Studywise-Api / SparkProgress |
+| Command pattern? | ✅ **DI-registered `Command` subclass + `ICommandHandler<TOptions>`** | Not the auto-discovery flow documented in earlier revisions of this file |
 | DI approach? | ✅ **`BindingContext.GetRequiredService<T>()`** | Proper DI, testable, no static locators |
 
 ---
 
-_Created 2026-05-09, updated 2026-05-10 with command pattern documentation_
+_Created 2026-05-09, updated 2026-09-29 with NUnit migration + E2E removal._
