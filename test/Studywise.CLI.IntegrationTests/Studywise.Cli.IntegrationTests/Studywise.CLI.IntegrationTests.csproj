@@ -30,4 +30,9 @@
     <ProjectReference Include="..\..\..\src\Studywise.Cli\Studywise.Cli.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Using Include="NUnit.Framework" />
+    <Using Include="FluentAssertions" />
+  </ItemGroup>
+
 </Project>

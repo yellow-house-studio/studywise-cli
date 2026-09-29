@@ -89,13 +89,15 @@ Target: matches `docs/test_strategy.md` in the org standards repo. Specifically:
 
 ## Enforcement: integration tests must NEVER touch the real API
 
+The plan initially included a `[OneTimeSetUp]` loopback-URL guard in `BaseIntegrationTest`, but I dropped it during implementation. Reason: the existing integration test pattern is "build a WireMock server, capture its URL, set `STUDYWISE_API_BASE_URL` inside the test body, build a fresh `IHttpClientFactory` pointed at that URL." `[OneTimeSetUp]` runs *before* the test sets the env var, so a guard that reads the env var at `[OneTimeSetUp]` time always sees the unset/real-API value and fails every test.
+
 Three layers of defense, in order:
 
-1. **Code-level guard (new)**: `BaseIntegrationTest` base class with `[OneTimeSetUp]`. Asserts:
-   - `STUDYWISE_API_BASE_URL` is non-empty AND starts with `http://127.0.0.1` or `http://localhost`.
-   - On failure, throws with a clear message pointing at `docs/testing/testing-strategy.md`.
-2. **No real URL in production code path**: `ConnectionDiagnosticCheck.RunAsync()` uses `httpClientFactory.CreateClient(StudywiseDefaults.ApiName).GetAsync("/health", ...)` — the host comes from the factory's `BaseAddress`, which `Program.cs` sets from `config.ApiBaseUrl` (which itself reads `STUDYWISE_API_BASE_URL`). With no env var set, `Program.cs` defaults to `https://api.studywise.io`. The integration test sets the env var to the WireMock URL before constructing the ServiceCollection — the production code never sees the real URL during the test. If a future change makes the production code ignore `STUDYWISE_API_BASE_URL` and hardcode `https://api.studywise.io`, the guard above would NOT catch it. **Trade-off acknowledged**: the guard is best-effort, not bulletproof. The org-level answer to "don't ever call prod from tests" is reviewer vigilance + the guard.
-3. **WireMock assertions + tests never depend on a specific real-data response**: every integration test uses `WireMockServer.Start()` and configures the mocks it needs. There is no "what does the real /health return" path.
+1. **`BaseIntegrationTest` (new, empty marker class)**: documented hook point for future fixtures. The xmldoc explains how to add a loopback guard if a future test ever depends on a pre-set `STUDYWISE_API_BASE_URL` instead of constructing its own factory.
+2. **Test pattern — WireMock in-process, no real network**: every integration test in `DoctorCommandIntegrationTests` does `WireMockServer.Start()`, gets its `.Url`, sets `STUDYWISE_API_BASE_URL` to that loopback URL, builds a ServiceCollection with `BaseAddress = new Uri(apiBaseUrl)`, and constructs `ConnectionDiagnosticCheck` from the resulting factory. The production code (`ConnectionDiagnosticCheck.RunAsync`) reads the URL from the factory's `BaseAddress`, so the production code never sees `https://api.studywise.io` during the test. There is no code path through the test that could dial the real API.
+3. **Code review**: the production code's only "default if no env var" URL is `StudywiseDefaults.ApiBaseUrl = "https://api.studywise.io"`. Any future change that hardcodes this URL into a test setup (rather than constructing a factory pointed at a test URL) will be visible in code review.
+
+This is the "trust the test pattern + reviewer vigilance" answer, not a runtime guard. The trade-off is honest: the production code does have a "if you forget to set the env var, you talk to prod" footgun, but the test layer is the only layer that matters here. If we ever ship a test that constructs `Program.cs` end-to-end (i.e. runs the real CLI in-test), the guard goes in.
 
 ## Risks
 
