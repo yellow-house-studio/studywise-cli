@@ -114,4 +114,6 @@ public static class StudywiseDefaults
     public const string ApiName = "Studywise";
     public const string ApiBaseUrl = "https://api.studywise.io";
     public const string UserAgent = "Studywise-CLI/1.0";
+    public const string ApiKeyHeaderName = "X-Studywise-Api-Key";
+    public const string AuthVerifyPath = "/api/v1/auth/verify";
 }
