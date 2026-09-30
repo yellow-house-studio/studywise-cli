@@ -43,16 +43,41 @@ expand.
 
 ## What "done" means
 
-Two local runs gate the work:
+Two local runs gate the work, in this order:
 
 1. **Pre-push (fast):** the pre-push hook
    (`./scripts/install-ci-pre-push-hook.sh`, install once per repo)
    runs `./scripts/verify.sh --scope=fast` on every push. Don't bypass
    it (no `SKIP_CI_PRE_PUSH=1`).
-2. **Post-PR (full):** after `gh pr create`, run
-   `./scripts/verify.sh --post-comment` (the default `--scope=full`)
-   and wait for it to pass. The comment is the artifact on the PR — no
-   work is "done" until that comment lands green.
+
+2. **Post-PR (post-comment):** AFTER `gh pr create` — NOT before —
+   run `./scripts/verify.sh --post-comment` and wait for **both**:
+
+   a. The script exits 0 (every phase green; default fail-fast applies).
+   b. The script prints `[verify] ✅ Posted sticky PR comment to PR #N`
+      before exiting.
+
+   Both are required. A green exit without a posted comment means
+   `--post-comment` was off — that is a failed gate, not a passed one.
+   The sticky comment is the PR-visible artifact; CI Fast / CI Full
+   turning green is necessary but not sufficient.
+
+   This applies to **every** PR — docs-only, refactor, chore, feature.
+   No exemptions. If `verify.sh` is ever too heavy for the docs-only
+   inner loop, the fix is a lighter `--scope=docs` *inside* the
+   script, not an exemption in this contract.
+
+   Use `--post-comment=always` (not `--post-comment`) to surface a
+   failure trace to a reviewer. The default skips on failure — the
+   dev re-runs locally for the breakdown.
+
+   Do **not** add `--no-fail-fast`. The flag exists for narrowly
+   scoped diagnostics; the agent-side contract is fail-fast only.
+
+   **AI agent reminder:** declare a PR "done" only after the
+   `[verify] ✅ Posted sticky PR comment` line appears in the
+   `verify.sh --post-comment` output. CI checks turning green is
+   necessary but not sufficient.
 
 CLI specifics layered on top of the contract above (don't override it,
 just adapt the right CLI knobs):
@@ -93,11 +118,13 @@ save polish for the PR title/description. Revert with
 
 ## Three-tier boundaries
 
-- ✅ **Always do:** Work in a worktree; run `verify.sh` before push
-  on non-docs diffs (the pre-push hook handles this); capture plan
-  docs under `docs/plans/` for multi-step work; re-capture issue
-  snapshots of live state before acting on them; capture a
-  retrospective as a follow-up PR when a work PR had user corrections.
+- ✅ **Always do:** Work in a worktree; run `verify.sh --scope=fast`
+  before push on every PR (the pre-push hook handles this); run
+  `./scripts/verify.sh --post-comment` after `gh pr create` on every
+  PR and confirm the sticky comment landed; capture plan docs under
+  `docs/plans/` for multi-step work; re-capture issue snapshots of
+  live state before acting on them; capture a retrospective as a
+  follow-up PR when a work PR had user corrections.
 - ⚠️ **Ask first:** Before deleting or renaming files used by other
   modules; before changing CI workflow files (`.github/workflows/*.yml`)
   or auth/secrets handling; before merging `main` into a long-lived
@@ -105,7 +132,9 @@ save polish for the PR title/description. Revert with
 - 🚫 **Never:** Push directly to `main` or any branch with protection
   rules; edit `node_modules/`, build outputs, generated files; commit
   secrets; substitute `dotnet test <one-project>` for
-  `./scripts/verify.sh`; bundle a retrospective into its work PR.
+  `./scripts/verify.sh`; declare a PR done without a sticky
+  `verify.sh --post-comment` artifact on the PR; bundle a
+  retrospective into its work PR.
 
 ## AI agent behaviour — discuss before big-axe edits
 
