@@ -982,6 +982,10 @@ fi
 if [[ "$RUN_AUTO_RAISE" == "1" ]]; then
     echo "[verify] === Phase 8: Baseline auto-raise ==="
     BASELINE_FILE="$REPO_ROOT/.github/coverage-baseline.json"
+    # Re-read HEAD_SHA in case the worktree was moved or rebased since
+    # the script started; the baseline's 'commit' field should reflect
+    # the branch tip, not the script's start-time state.
+    HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
     if [[ ! -f "$BASELINE_FILE" ]]; then
         echo "[verify] ⚠️  No baseline file at $BASELINE_FILE — skipping auto-raise"
     elif [[ -z "$COVERAGE_MERGED" || ! -f "$COVERAGE_MERGED" ]]; then
@@ -1055,6 +1059,23 @@ else:
     print(f"[verify] No assembly coverage improved; baseline unchanged.")
 PYEOF
     fi
+fi
+
+# ─── Baseline dirty check ──────────────────────────────────────────────
+# Phase 8 (auto-raise) may have written a new .github/coverage-baseline.json
+# when coverage improved. There's no longer a bot committing it (we removed
+# .github/workflows/update-baseline-on-merge.yml in the NUnit migration);
+# the dev who runs verify.sh is responsible for committing the bumped
+# baseline as part of their PR. Surface a loud reminder when the file is
+# dirty so it doesn't get lost when the dev pushes.
+if [[ "$RUN_AUTO_RAISE" == "1" ]] && [[ -f "$BASELINE_FILE" ]] && ! git diff --quiet "$BASELINE_FILE" 2>/dev/null; then
+    echo ""
+    echo "[verify] 📈 Coverage baseline was raised. .github/coverage-baseline.json is modified."
+    echo "    Include this change in your PR so the gate stays a real signal:"
+    echo "      git add .github/coverage-baseline.json"
+    echo "      git commit -m 'chore(ci): raise coverage baseline to N%'"
+    echo "    (Use --no-auto-raise to disable Phase 8 if you don't want the"
+    echo "    raise to happen.)"
 fi
 
 # ─── Summary ────────────────────────────────────────────────────────────
