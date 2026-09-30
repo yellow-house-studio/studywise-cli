@@ -1125,6 +1125,15 @@ fi
 
 if [[ "$OVERALL_RC" == "0" ]]; then
     echo "[verify] ✅ All selected checks passed."
+    # Reminder for the post-PR gate — the sticky PR comment is a
+    # separate obligation from a green run. CI checks turning green
+    # are necessary but not sufficient; the agent must re-run with
+    # --post-comment after `gh pr create` and verify the sticky
+    # comment landed. Skip the reminder when --post-comment already
+    # ran (it'd be redundant and noisy on every CI invocation).
+    if [[ "$RUN_PR_COMMENT" != "1" ]]; then
+        echo "[verify] ℹ️  --post-comment was not set. After 'gh pr create', re-run './scripts/verify.sh --post-comment' — the sticky comment is the PR-visible gate, not this run."
+    fi
 else
     echo "[verify] ❌ One or more checks failed." >&2
 fi
