@@ -4,6 +4,7 @@ using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
 using Studywise.Cli.Formatting;
+using Studywise.Cli.Http;
 
 namespace Studywise.Cli.Commands.Doctor;
 
@@ -11,15 +12,19 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
 {
     private readonly IDiagnosticRunner _runner;
     private readonly IHttpClientFactory _httpClientFactory;
+    private readonly IStudywiseTransport _transport;
+    private readonly ApplicationConfig _config;
 
     public DoctorCommandHandler(
         IDiagnosticRunner runner,
         IHttpClientFactory httpClientFactory,
+        IStudywiseTransport transport,
         ApplicationConfig config)
     {
         _runner = runner;
         _httpClientFactory = httpClientFactory;
-        _ = config;
+        _transport = transport;
+        _config = config;
     }
 
     private IDiagnosticCheck[]? ResolveChecks(string checkName)
@@ -30,11 +35,13 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
             {
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(),
-                new ConnectionDiagnosticCheck(_httpClientFactory)
+                new ConnectionDiagnosticCheck(_httpClientFactory),
+                new AuthVerifyDiagnosticCheck(_transport, _config)
             },
             "config" => new[] { new ConfigDiagnosticCheck() },
             "api-key" => new[] { new ApiKeyDiagnosticCheck() },
             "connection" => new[] { new ConnectionDiagnosticCheck(_httpClientFactory) },
+            "auth-verify" => new[] { new AuthVerifyDiagnosticCheck(_transport, _config) },
             _ => null
         };
     }

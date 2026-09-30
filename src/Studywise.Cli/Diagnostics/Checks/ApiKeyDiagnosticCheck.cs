@@ -12,9 +12,9 @@ public sealed class ApiKeyDiagnosticCheck(string? configPath = null) : IDiagnost
 
         if (!string.IsNullOrWhiteSpace(apiKey))
         {
-            return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "API-nyckel: OK — finns (maskerad)"));
+            return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Pass, "API key: OK — present (masked)"));
         }
 
-        return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API-nyckel: FAIL — saknas eller ar tom i config"));
+        return Task.FromResult(new DiagnosticCheckResult(Name, DiagnosticStatus.Fail, "API key: FAIL — missing or empty in config"));
     }
 }
