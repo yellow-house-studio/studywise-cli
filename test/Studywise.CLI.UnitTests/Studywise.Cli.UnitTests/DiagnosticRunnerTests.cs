@@ -2,9 +2,10 @@ using Studywise.Cli.Diagnostics;
 
 namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class DiagnosticRunnerTests
 {
-    [Fact]
+    [Test]
     public async Task RunAsync_ExecutesChecksInSequence()
     {
         var callOrder = new List<string>();
@@ -18,8 +19,8 @@ public class DiagnosticRunnerTests
         var runner = new DiagnosticRunner();
         var report = await runner.RunAsync(checks);
 
-        Assert.Equal(new[] { "config", "api-key", "connection" }, callOrder);
-        Assert.Equal(3, report.Checks.Count);
+        callOrder.Should().Equal("config", "api-key", "connection");
+        report.Checks.Should().HaveCount(3);
     }
 
     private sealed class TrackingCheck(string name, List<string> callOrder) : IDiagnosticCheck

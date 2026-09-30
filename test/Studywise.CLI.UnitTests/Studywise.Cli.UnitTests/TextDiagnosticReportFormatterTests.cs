@@ -3,9 +3,10 @@ using Studywise.Cli.Diagnostics.Formatting;
 
 namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class TextDiagnosticReportFormatterTests
 {
-    [Fact]
+    [Test]
     public void Format_IncludesTitleMarkersAndSummary()
     {
         var report = new DiagnosticReport(
@@ -18,14 +19,14 @@ public class TextDiagnosticReportFormatterTests
         var formatter = new TextDiagnosticReportFormatter();
         var text = formatter.Format(report);
 
-        Assert.Contains("Studywise CLI Diagnostics", text);
-        Assert.Contains("[PASS] Config: OK", text);
-        Assert.Contains("[FAIL] API-nyckel: FAIL — saknas eller ar tom i config", text);
-        Assert.Contains("[WARN] Connection: WARN — /health svarade med 503", text);
-        Assert.Contains("1 failed, 1 passed, 1 warning (exit code 1)", text);
+        text.Should().Contain("Studywise CLI Diagnostics");
+        text.Should().Contain("[PASS] Config: OK");
+        text.Should().Contain("[FAIL] API-nyckel: FAIL — saknas eller ar tom i config");
+        text.Should().Contain("[WARN] Connection: WARN — /health svarade med 503");
+        text.Should().Contain("1 failed, 1 passed, 1 warning (exit code 1)");
     }
 
-    [Fact]
+    [Test]
     public void Format_UsesPluralWarningsInSummary()
     {
         var report = new DiagnosticReport(
@@ -37,6 +38,6 @@ public class TextDiagnosticReportFormatterTests
         var formatter = new TextDiagnosticReportFormatter();
         var text = formatter.Format(report);
 
-        Assert.Contains("0 failed, 0 passed, 2 warnings (exit code 0)", text);
+        text.Should().Contain("0 failed, 0 passed, 2 warnings (exit code 0)");
     }
 }

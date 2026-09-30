@@ -5,13 +5,13 @@ using System.Text.Json;
 using Studywise.Cli.Commands.Doctor;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
-using Xunit;
 
-namespace Studywise.Cli.UnitTests;
+namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class DoctorCommandHandlerTests
 {
-    [Fact]
+    [Test]
     public async Task HandleAsync_WithJson_FallsToJsonReporter()
     {
         var report = new DiagnosticReport(new[]
@@ -32,13 +32,13 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
+        exitCode.Should().Be(0);
         var output = console.Lines.Single();
         using var json = JsonDocument.Parse(output);
-        Assert.Equal("config", json.RootElement.GetProperty("checks")[0].GetProperty("name").GetString());
+        json.RootElement.GetProperty("checks")[0].GetProperty("name").GetString().Should().Be("config");
     }
 
-    [Fact]
+    [Test]
     public async Task HandleAsync_WithoutJson_FallsToTextFormatter()
     {
         var report = new DiagnosticReport(new[]
@@ -57,11 +57,11 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        Assert.Equal(0, exitCode);
-        Assert.Contains("Studywise CLI Diagnostics", console.Lines[0]);
+        exitCode.Should().Be(0);
+        console.Lines[0].Should().Contain("Studywise CLI Diagnostics");
     }
 
-    [Fact]
+    [Test]
     public async Task HandleAsync_WithFailingChecks_ReturnsExitCode1()
     {
         var report = new DiagnosticReport(new[]
@@ -80,15 +80,14 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        Assert.Equal(1, exitCode);
+        exitCode.Should().Be(1);
     }
 
-    [Theory]
-    [InlineData("config", "config")]
-    [InlineData("api-key", "api-key")]
-    [InlineData("connection", "connection")]
-    [InlineData("CONFIG", "config")]
-    [InlineData("Api-Key", "api-key")]
+    [TestCase("config", "config")]
+    [TestCase("api-key", "api-key")]
+    [TestCase("connection", "connection")]
+    [TestCase("CONFIG", "config")]
+    [TestCase("Api-Key", "api-key")]
     public async Task HandleAsync_WithCheckName_PassesOnlySelectedCheck(
         string checkName,
         string expectedCheckName)
@@ -104,11 +103,11 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        Assert.Single(runner.CapturedChecks);
-        Assert.Equal(expectedCheckName, runner.CapturedChecks[0].Name);
+        runner.CapturedChecks.Should().HaveCount(1);
+        runner.CapturedChecks[0].Name.Should().Be(expectedCheckName);
     }
 
-    [Fact]
+    [Test]
     public async Task HandleAsync_WithCheckNameAll_PassesAllThreeChecks()
     {
         var httpClientFactory = new FakeHttpClientFactory();
@@ -122,13 +121,13 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        Assert.Equal(3, runner.CapturedChecks.Length);
-        Assert.Equal("config", runner.CapturedChecks[0].Name);
-        Assert.Equal("api-key", runner.CapturedChecks[1].Name);
-        Assert.Equal("connection", runner.CapturedChecks[2].Name);
+        runner.CapturedChecks.Should().HaveCount(3);
+        runner.CapturedChecks[0].Name.Should().Be("config");
+        runner.CapturedChecks[1].Name.Should().Be("api-key");
+        runner.CapturedChecks[2].Name.Should().Be("connection");
     }
 
-    [Fact]
+    [Test]
     public async Task HandleAsync_WithUnknownCheckName_ReturnsExitCode1AndWritesToError()
     {
         var httpClientFactory = new FakeHttpClientFactory();
@@ -142,8 +141,8 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        Assert.Equal(1, exitCode);
-        Assert.Equal("unknown check: foo", console.ErrorOutput.Trim());
+        exitCode.Should().Be(1);
+        console.ErrorOutput.Trim().Should().Be("unknown check: foo");
     }
 
     private sealed class FakeDiagnosticRunner : IDiagnosticRunner

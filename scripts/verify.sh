@@ -9,12 +9,12 @@
 # — single source of truth for both local dev and CI.
 #
 # Phases (each independently skippable):
-#   1. Pre-flight (STUDYWISE_API_KEY for E2E tests)
+#   1. Pre-flight (currently a no-op for CLI; kept for future expansion)
 #   2. Restore
 #   3. Build (Release, TreatWarningsAsErrors=true, EnforceXmlDocs=true)
 #   4. Format + analyzers (+ gitleaks + actionlint + cspell if installed)
 #   5. Security scan (`dotnet list package --vulnerable`)
-#   6. Tests (unit → integration → e2e)
+#   6. Tests (unit → integration)
 #   6.5. Coverage merge (ReportGenerator; per-test-project cobertura XMLs
 #        → one deduplicated Cobertura.xml at $RESULTS_DIR/coverage/Cobertura.xml)
 #   7. Coverage gate (per-assembly drop tolerance + new-file ≥80%)
@@ -30,11 +30,16 @@
 #     sweeps or CI runs where you want the full picture.
 #
 # Scope (--scope flag, default=full):
-#   - full:        all 3 test projects (unit + integration + e2e)
-#   - fast:        same as full (CLI is small enough that there is no
-#                  Fast/LongRunning category split — see xunit, not NUnit)
+#   - full:        both test projects (unit + integration)
+#   - fast:        same as full — aliased because CI historically used
+#                  the term to mean "everything that's safe on PR".
+#                  (The api repo distinguishes --scope=fast with the
+#                  Category!=LongRunning NUnit filter; the CLI has no
+#                  LongRunning tests today, so the filter would match
+#                  everything. If/when a [Category("LongRunning")]
+#                  test lands, --scope=fast will gain Category!=LongRunning.)
 #   - unit:        only unit tests
-#   - integration: unit + integration (no e2e)
+#   - integration: unit + integration
 #
 # Coverage gate + auto-raise only run under --scope=full (otherwise
 # the coverage numbers reflect only a subset of the suite and the
@@ -43,20 +48,13 @@
 # NOT mirrored (intentionally):
 #   - Publish + NuGet pack + GitHub Release (CD concern, owned by
 #     ci-production.yml, not a CI gate).
-#   - Dev Proxy setup — CI installs it via dev-proxy-tools/actions/setup@v1
-#     in ci-full.yml; locally the E2E tests skip cleanly when the
-#     proxy URL env var is unset. Local devs run Dev Proxy by hand
-#     per docs/devenv/setup.md when iterating on E2E tests.
 #
 # Required environment:
-#   STUDYWISE_API_KEY  — needed for E2E tests (the CLI authenticates
-#                         via the X-Studywise-Api-Key header). The
-#                         script's pre-flight reads it from the shell
-#                         or ~/.secrets/studywise-cli.env and exits 2
-#                         with a fix-it pointer if missing under
-#                         --scope=full or --scope=fast. Under
-#                         --scope=unit or --scope=integration, the
-#                         E2E stage is skipped without the key.
+#   None. Integration tests build their own WireMock server in-process
+#   and set STUDYWISE_API_BASE_URL to the loopback URL inside the test
+#   body — they never dial the real Studywise API. The base class
+#   BaseIntegrationTest is documented for future fixtures that might
+#   rely on a pre-set env var.
 #
 # Tooling:
 #   reportgenerator — the .NET global tool `dotnet-reportgenerator-globaltool`
@@ -84,11 +82,10 @@
 #
 # Usage:
 #   ./scripts/verify.sh                          # --scope=full, fail-fast
-#   ./scripts/verify.sh --scope=fast             # dev inner loop (== full here)
+#   ./scripts/verify.sh --scope=fast             # same as --scope=full today
 #   ./scripts/verify.sh --scope=unit             # unit tests only
-#   ./scripts/verify.sh --scope=integration      # unit + integration (no e2e)
+#   ./scripts/verify.sh --scope=integration      # unit + integration
 #   ./scripts/verify.sh --no-fail-fast           # collect all failures
-#   ./scripts/verify.sh --skip-e2e               # skip E2E tests (no api key needed)
 #   ./scripts/verify.sh --skip-security          # skip the vulnerable-package scan
 #   ./scripts/verify.sh --skip-coverage-gate     # run tests but don't gate
 #   ./scripts/verify.sh --skip-format --skip-analyzers
@@ -131,7 +128,6 @@ cspell=skipped
 security=skipped
 unit_tests=skipped
 integration_tests=skipped
-e2e_tests=skipped
 coverage_gate=skipped"
 
 # Update the `name=status` line for a phase in PHASE_LIST. Works on
@@ -167,7 +163,6 @@ RUN_ACTIONLINT=1
 RUN_CSPELL=1
 RUN_SECURITY=1
 RUN_TESTS=1
-RUN_E2E=1
 RUN_COVERAGE_GATE=1
 RUN_AUTO_RAISE=1
 RUN_PR_COMMENT=0
@@ -184,14 +179,15 @@ Usage: $0 [--scope=<s>] [--no-fail-fast] [--skip-<phase>...] [--post-comment[=al
 Unified local CI script for Studywise CLI.
 
 Scope (default: full):
-  --scope=fast         All 3 test projects. CLI is small enough that there's
-                       no Fast/LongRunning category split; --scope=fast is
-                       identical to --scope=full here. ~3-8 min.
-  --scope=full         All 3 test projects (unit + integration + e2e).
-                       Mirrors ci-full.yml "build-and-test" job. ~5-15 min.
+  --scope=fast         Alias for --scope=full today. The api repo distinguishes
+                       --scope=fast with Category!=LongRunning; the CLI has no
+                       [Category("LongRunning")] tests, so the filter would
+                       match everything. If/when a LongRunning test lands,
+                       --scope=fast will gain Category!=LongRunning.
+  --scope=full         Both test projects (unit + integration). Mirrors
+                       ci-full.yml "build-and-test" job.
   --scope=unit         Unit tests only.
-  --scope=integration  Unit + integration (no e2e). Useful when Dev Proxy /
-                       STUDYWISE_API_KEY aren't available locally.
+  --scope=integration  Unit + integration.
 
 Error mode:
   --no-fail-fast       Collect all phase failures; exit at the end with aggregate code.
@@ -209,8 +205,6 @@ Phase toggles (each skip flag is independent):
                        \`npx cspell@10\` — no separate install; cspell is
                        downloaded on first invocation and cached.
   --skip-security      Skip 'dotnet list package --vulnerable'.
-  --skip-e2e           Skip the E2E test phase (handy when STUDYWISE_API_KEY
-                       isn't available; equivalent to --scope=integration).
   --skip-coverage-gate Run tests with coverage but don't enforce the baseline gate.
   --no-auto-raise      Don't update .github/coverage-baseline.json at end of run.
   --post-comment       Post a sticky PR comment with the run results on success.
@@ -219,7 +213,7 @@ Phase toggles (each skip flag is independent):
 
 Verbosity:
   --verbose            Use --verbosity normal for 'dotnet test' invocations
-                       instead of minimal. The verbose xunit console output
+                       instead of minimal. The verbose NUnit console output
                        is still captured to TestResults/Verify/<stage>/console.log
                        via run_stage() — --verbose just controls whether the
                        dotnet output itself is verbose. No-op for non-test
@@ -249,7 +243,6 @@ while [[ $# -gt 0 ]]; do
         --skip-actionlint)  RUN_ACTIONLINT=0 ;;
         --skip-cspell)      RUN_CSPELL=0 ;;
         --skip-security)    RUN_SECURITY=0 ;;
-        --skip-e2e)         RUN_E2E=0 ;;
         --skip-coverage-gate) RUN_COVERAGE_GATE=0 ;;
         --no-auto-raise)    RUN_AUTO_RAISE=0 ;;
         --post-comment)     RUN_PR_COMMENT=1; PR_COMMENT_ALWAYS=0 ;;
@@ -337,50 +330,11 @@ run_phase() {
     fi
 }
 
-# ─── Pre-flight: STUDYWISE_API_KEY for E2E tests ───────────────────────
-# The E2E tests in test/Studywise.CLI.E2ETests hit the real Studywise
-# API (mocked by Dev Proxy in CI; locally you'd point at staging). They
-# authenticate via the X-Studywise-Api-Key header, set from the
-# STUDYWISE_API_KEY environment variable. Without a key, the E2E tests
-# fail with a cryptic 401 deep in the test runner.
-#
-# Only blocks under --scope=full / --scope=fast (E2E phase runs).
-# Under --scope=unit / --scope=integration the E2E phase is skipped
-# and the missing key prints a one-line warning, not a fail.
-#
-# Reads STUDYWISE_API_KEY from the shell first; falls back to
-# ~/.secrets/studywise-cli.env (one-line `STUDYWISE_API_KEY=...` or
-# `export STUDYWISE_API_KEY=...`).
-preflight_api_key() {
-    local key="${STUDYWISE_API_KEY:-}"
-    local env_file="$HOME/.secrets/studywise-cli.env"
-
-    if [[ -z "$key" && -f "$env_file" ]]; then
-        key=$(grep -E '^[[:space:]]*(export[[:space:]]+)?STUDYWISE_API_KEY=' "$env_file" \
-              | head -1 \
-              | sed -E 's/^[[:space:]]*(export[[:space:]]+)?STUDYWISE_API_KEY=["'\'']?//; s/["'\'']?$//')
-    fi
-
-    if [[ -z "$key" ]]; then
-        echo "[verify] ❌ STUDYWISE_API_KEY is not set." >&2
-        echo "    E2E tests in test/Studywise.CLI.E2ETests authenticate against" >&2
-        echo "    the Studywise API via X-Studywise-Api-Key header and need a key." >&2
-        echo "" >&2
-        echo "    To fix:" >&2
-        echo "      export STUDYWISE_API_KEY=<your-key>      # any shell session" >&2
-        echo "      # or, for persistence across shells:" >&2
-        echo "      echo 'export STUDYWISE_API_KEY=<your-key>' >> ~/.secrets/studywise-cli.env" >&2
-        echo "" >&2
-        echo "    To skip E2E without a key:" >&2
-        echo "      $0 --skip-e2e            # or --scope=integration / --scope=unit" >&2
-        echo "" >&2
-        echo "    See docs/devenv/setup.md for the full setup recipe." >&2
-        return 2
-    fi
-
-    export STUDYWISE_API_KEY="$key"
-    return 0
-}
+# CLI no longer requires a pre-flight. The integration tests build
+# their own WireMock server in-process and never dial the real API,
+# so no STUDYWISE_API_KEY pre-flight is needed. The phase slot is
+# kept in PHASE_LIST for future expansion (e.g. NuGet auth if a
+# private feed is ever added) but currently no-ops.
 
 DOTNET_RESTORE_FLAGS=(--verbosity minimal)
 
@@ -418,48 +372,14 @@ mkdir -p \
     "$RESULTS_DIR/Security" \
     "$RESULTS_DIR/Unit" \
     "$RESULTS_DIR/Integration" \
-    "$RESULTS_DIR/E2E" \
     "$RESULTS_DIR/Coverage"
 
 # ─── Phase 1: Pre-flight ────────────────────────────────────────────────
-# CLI's pre-flight is much lighter than api's: no NuGet auth (CLI has
-# no private feeds), no Stripe (no payments in CLI), no Azurite (no
-# blob storage in CLI), no Node/Azurite check (Node is only a soft
-# dependency for `npx cspell@10` in Phase 5d, and the cspell phase
-# self-skips if `npx` is missing).
-#
-# Only STUDYWISE_API_KEY is gating — and only under scopes that
-# actually run E2E tests. Under --scope=unit / --scope=integration we
-# still try to find the key (so the summary.json records whether one
-# was available), but a missing key is a warning, not a fail.
+# Currently a no-op for CLI — see the comment block above the
+# preflight_api_key removal. Kept in PHASE_LIST for future expansion.
 echo "[verify] === Phase 1: Pre-flight ==="
-PRE_OK=1
-case "$SCOPE" in
-    full|fast)
-        if ! preflight_api_key; then
-            PRE_OK=0
-        fi
-        ;;
-    unit|integration)
-        if [[ -z "${STUDYWISE_API_KEY:-}" ]] && [[ ! -f "$HOME/.secrets/studywise-cli.env" ]]; then
-            echo "[verify] ⚠️  STUDYWISE_API_KEY not set — E2E phase will be skipped if reached."
-            set_phase_status preflight passed
-        else
-            preflight_api_key || PRE_OK=0
-        fi
-        ;;
-esac
-if [[ "$PRE_OK" == "1" ]]; then
-    echo "[verify] ✅ Pre-flight"
-    set_phase_status preflight passed
-else
-    set_phase_status preflight failed
-    if [[ "$FAIL_FAST" == "1" ]]; then
-        exit 2
-    else
-        OVERALL_RC=1
-    fi
-fi
+echo "[verify] ✅ Pre-flight (no-op)"
+set_phase_status preflight passed
 
 # ─── Phase 2: Restore ──────────────────────────────────────────────────
 echo "[verify] === Phase 2: Restore ==="
@@ -652,22 +572,24 @@ fi
 # ─── Phase 6: Tests ─────────────────────────────────────────────────────
 # CLI has 3 test projects: Unit, Integration, E2E. No application/
 # api split (the api repo has those because of its BoundedContext
-# architecture; CLI is a single-process CLI tool). No Category=Fast
-# filter — xunit doesn't have the Fast/LongRunning attribute pattern
-# NUnit uses, so the --scope=fast filter would always match the full
-# set. CLI's --scope=fast == --scope=full.
+# CLI has 2 test projects: UnitTests, IntegrationTests. No application/
+# api split (the api repo has those because of its BoundedContext
+# architecture; CLI is a single-process CLI tool). The Category=Fast
+# filter pattern is available (NUnit) but unused today — there are no
+# [Category("LongRunning")] tests, so --scope=fast would match the
+# full set anyway. CLI's --scope=fast == --scope=full by design.
 if [[ "$RUN_TESTS" == "1" ]]; then
     DOTNET_TEST_FLAGS_COLLECT=("${DOTNET_TEST_FLAGS[@]}" --collect:"XPlat Code Coverage")
 
     case "$SCOPE" in
         full|fast)
-            RUN_UNIT=1; RUN_INT=1; RUN_E2E_EFFECTIVE=$RUN_E2E
+            RUN_UNIT=1; RUN_INT=1
             ;;
         unit)
-            RUN_UNIT=1; RUN_INT=0; RUN_E2E_EFFECTIVE=0
+            RUN_UNIT=1; RUN_INT=0
             ;;
         integration)
-            RUN_UNIT=1; RUN_INT=1; RUN_E2E_EFFECTIVE=0
+            RUN_UNIT=1; RUN_INT=1
             ;;
         *)
             echo "[verify] ❌ Unknown scope: $SCOPE" >&2
@@ -702,30 +624,6 @@ if [[ "$RUN_TESTS" == "1" ]]; then
                     "$DOTNET" test "$TEST_PROJ" "${INT_FLAGS[@]}" \
                         --logger "trx;LogFileName=Studywise.CLI.IntegrationTests.trx" \
                         --results-directory "$RESULTS_DIR/Integration"
-        fi
-    fi
-
-    # E2E tests (full/fast scopes only, AND requires STUDYWISE_API_KEY).
-    # If the key isn't present we record a warning and skip rather than
-    # fail — local devs running --scope=integration shouldn't have to
-    # set up the API key just to test the diagnostic checks.
-    if [[ "$RUN_E2E_EFFECTIVE" == "1" ]]; then
-        TEST_PROJ="$REPO_ROOT/test/Studywise.CLI.E2ETests/Studywise.CLI.E2ETests.csproj"
-        if [[ ! -f "$TEST_PROJ" ]]; then
-            echo "[verify] ❌ E2E test project not found: $TEST_PROJ" >&2
-            OVERALL_RC=1
-        elif [[ -z "${STUDYWISE_API_KEY:-}" ]]; then
-            echo "[verify] ⚠️  STUDYWISE_API_KEY is not set — skipping E2E tests." >&2
-            echo "    To run E2E locally: export STUDYWISE_API_KEY=<key> (and" >&2
-            echo "    usually STUDYWISE_API_BASE_URL=http://localhost:8000 if using Dev Proxy)." >&2
-            set_phase_status e2e_tests skipped
-        else
-            E2E_FLAGS=("${DOTNET_TEST_FLAGS_COLLECT[@]}")
-            run_phase "e2e_tests" \
-                run_stage "E2E tests" "$RESULTS_DIR/E2E" \
-                    "$DOTNET" test "$TEST_PROJ" "${E2E_FLAGS[@]}" \
-                        --logger "trx;LogFileName=Studywise.CLI.E2ETests.trx" \
-                        --results-directory "$RESULTS_DIR/E2E"
         fi
     fi
 fi
@@ -1084,6 +982,10 @@ fi
 if [[ "$RUN_AUTO_RAISE" == "1" ]]; then
     echo "[verify] === Phase 8: Baseline auto-raise ==="
     BASELINE_FILE="$REPO_ROOT/.github/coverage-baseline.json"
+    # Re-read HEAD_SHA in case the worktree was moved or rebased since
+    # the script started; the baseline's 'commit' field should reflect
+    # the branch tip, not the script's start-time state.
+    HEAD_SHA="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
     if [[ ! -f "$BASELINE_FILE" ]]; then
         echo "[verify] ⚠️  No baseline file at $BASELINE_FILE — skipping auto-raise"
     elif [[ -z "$COVERAGE_MERGED" || ! -f "$COVERAGE_MERGED" ]]; then
@@ -1157,6 +1059,23 @@ else:
     print(f"[verify] No assembly coverage improved; baseline unchanged.")
 PYEOF
     fi
+fi
+
+# ─── Baseline dirty check ──────────────────────────────────────────────
+# Phase 8 (auto-raise) may have written a new .github/coverage-baseline.json
+# when coverage improved. There's no longer a bot committing it (we removed
+# .github/workflows/update-baseline-on-merge.yml in the NUnit migration);
+# the dev who runs verify.sh is responsible for committing the bumped
+# baseline as part of their PR. Surface a loud reminder when the file is
+# dirty so it doesn't get lost when the dev pushes.
+if [[ "$RUN_AUTO_RAISE" == "1" ]] && [[ -f "$BASELINE_FILE" ]] && ! git diff --quiet "$BASELINE_FILE" 2>/dev/null; then
+    echo ""
+    echo "[verify] 📈 Coverage baseline was raised. .github/coverage-baseline.json is modified."
+    echo "    Include this change in your PR so the gate stays a real signal:"
+    echo "      git add .github/coverage-baseline.json"
+    echo "      git commit -m 'chore(ci): raise coverage baseline to N%'"
+    echo "    (Use --no-auto-raise to disable Phase 8 if you don't want the"
+    echo "    raise to happen.)"
 fi
 
 # ─── Summary ────────────────────────────────────────────────────────────

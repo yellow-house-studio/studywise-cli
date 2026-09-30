@@ -4,9 +4,10 @@ using Studywise.Cli.Diagnostics.Checks;
 
 namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class ApiKeyDiagnosticCheckTests
 {
-    [Fact]
+    [Test]
     public async Task RunAsync_ReturnsPassWhenConfigContainsApiKey()
     {
         await RunWithTemporaryConfigPathAsync(async configPath =>
@@ -16,16 +17,15 @@ public class ApiKeyDiagnosticCheckTests
 
             var result = await check.RunAsync();
 
-            Assert.Equal("api-key", result.Name);
-            Assert.Equal(DiagnosticStatus.Pass, result.Status);
-            Assert.Equal("API-nyckel: OK — finns (maskerad)", result.Message);
+            result.Name.Should().Be("api-key");
+            result.Status.Should().Be(DiagnosticStatus.Pass);
+            result.Message.Should().Be("API-nyckel: OK — finns (maskerad)");
         });
     }
 
-    [Theory]
-    [InlineData("{\"apiKey\":\"\"}")]
-    [InlineData("{\"apiKey\":\" \"}")]
-    [InlineData("{\"apiKey\":\"   \"}")]
+    [TestCase("{\"apiKey\":\"\"}")]
+    [TestCase("{\"apiKey\":\" \"}")]
+    [TestCase("{\"apiKey\":\"   \"}")]
     public async Task RunAsync_ReturnsFailWhenApiKeyInConfigIsEmptyOrWhitespace(string configContent)
     {
         await RunWithTemporaryConfigPathAsync(async configPath =>
@@ -35,12 +35,12 @@ public class ApiKeyDiagnosticCheckTests
 
             var result = await check.RunAsync();
 
-            Assert.Equal(DiagnosticStatus.Fail, result.Status);
-            Assert.Equal("API-nyckel: FAIL — saknas eller ar tom i config", result.Message);
+            result.Status.Should().Be(DiagnosticStatus.Fail);
+            result.Message.Should().Be("API-nyckel: FAIL — saknas eller ar tom i config");
         });
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_ReturnsFailWhenApiKeyIsMissing()
     {
         await RunWithTemporaryConfigPathAsync(async configPath =>
@@ -50,12 +50,12 @@ public class ApiKeyDiagnosticCheckTests
 
             var result = await check.RunAsync();
 
-            Assert.Equal(DiagnosticStatus.Fail, result.Status);
-            Assert.Equal("API-nyckel: FAIL — saknas eller ar tom i config", result.Message);
+            result.Status.Should().Be(DiagnosticStatus.Fail);
+            result.Message.Should().Be("API-nyckel: FAIL — saknas eller ar tom i config");
         });
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_NeverLeaksApiKeyValueInMessage()
     {
         await RunWithTemporaryConfigPathAsync(async configPath =>
@@ -66,8 +66,8 @@ public class ApiKeyDiagnosticCheckTests
 
             var result = await check.RunAsync();
 
-            Assert.DoesNotContain(secretValue, result.Message, StringComparison.Ordinal);
-            Assert.Contains("maskerad", result.Message, StringComparison.Ordinal);
+            result.Message.Should().NotContain(secretValue);
+            result.Message.Should().Contain("maskerad");
         });
     }
 
