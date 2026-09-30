@@ -23,6 +23,12 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         server
             .Given(Request.Create().WithPath("/health").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
+        server
+            .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("{\"userId\":\"users/abc-123\",\"authMethod\":\"ApiKey\"}"));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
         var output = new TextDiagnosticReportFormatter().Format(report);
@@ -31,6 +37,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         output.Should().Contain("Config:");
         output.Should().Contain("API key:");
         output.Should().Contain("Connection:");
+        output.Should().Contain("Auth verify:");
         output.Should().Contain("All checks passed");
     }
 
@@ -41,6 +48,12 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         server
             .Given(Request.Create().WithPath("/health").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
+        server
+            .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("{\"userId\":\"users/abc-123\",\"authMethod\":\"ApiKey\"}"));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
         var output = JsonReporter.Format(report);
