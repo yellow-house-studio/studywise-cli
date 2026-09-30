@@ -12,8 +12,8 @@ public class TextDiagnosticReportFormatterTests
         var report = new DiagnosticReport(
         [
             new DiagnosticCheckResult("config", DiagnosticStatus.Pass, "Config: OK"),
-            new DiagnosticCheckResult("api-key", DiagnosticStatus.Fail, "API-nyckel: FAIL — saknas eller ar tom i config"),
-            new DiagnosticCheckResult("connection", DiagnosticStatus.Warn, "Connection: WARN — /health svarade med 503")
+            new DiagnosticCheckResult("api-key", DiagnosticStatus.Fail, "API key: FAIL — missing or empty in config"),
+            new DiagnosticCheckResult("connection", DiagnosticStatus.Warn, "Connection: WARN — /health responded with 503")
         ]);
 
         var formatter = new TextDiagnosticReportFormatter();
@@ -21,8 +21,8 @@ public class TextDiagnosticReportFormatterTests
 
         text.Should().Contain("Studywise CLI Diagnostics");
         text.Should().Contain("[PASS] Config: OK");
-        text.Should().Contain("[FAIL] API-nyckel: FAIL — saknas eller ar tom i config");
-        text.Should().Contain("[WARN] Connection: WARN — /health svarade med 503");
+        text.Should().Contain("[FAIL] API key: FAIL — missing or empty in config");
+        text.Should().Contain("[WARN] Connection: WARN — /health responded with 503");
         text.Should().Contain("1 failed, 1 passed, 1 warning (exit code 1)");
     }
 

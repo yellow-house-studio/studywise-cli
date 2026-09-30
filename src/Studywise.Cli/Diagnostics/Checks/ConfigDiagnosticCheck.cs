@@ -4,14 +4,24 @@ using Studywise.Cli.Configuration;
 namespace Studywise.Cli.Diagnostics.Checks;
 
 /// <summary>
-/// Checks whether the Studywise config file is present and readable.
-/// NOTE: This check has a TOCTOU race window between File.Exists and the read attempt.
-/// This is acceptable for CLI diagnostics where a subsequent operation would fail anyway.
+/// Diagnostic check that reports whether the Studywise config file exists
+/// and is readable by the current user.
+/// <para>
+/// NOTE: This check has a TOCTOU race window between <see cref="File.Exists(string)"/> and
+/// the read attempt. This is acceptable for CLI diagnostics where a subsequent operation
+/// would surface the same I/O error anyway.
+/// </para>
 /// </summary>
 public sealed class ConfigDiagnosticCheck : IDiagnosticCheck
 {
+    /// <inheritdoc />
     public string Name => "config";
 
+    /// <summary>
+    /// Runs the check.
+    /// </summary>
+    /// <param name="cancellationToken">Token observed for cancellation.</param>
+    /// <returns>The check outcome.</returns>
     public Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
         var configPath = ApplicationConfig.GetConfigPath();

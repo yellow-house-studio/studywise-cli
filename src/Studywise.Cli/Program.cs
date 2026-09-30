@@ -2,10 +2,12 @@ using System.CommandLine;
 using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
 using Microsoft.Extensions.DependencyInjection;
+using Studywise.Cli.Auth;
 using Studywise.Cli.Commands;
 using Studywise.Cli.Commands.Doctor;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
+using Studywise.Cli.Http;
 
 var config = ApplicationConfig.FromEnvironment();
 
@@ -18,11 +20,14 @@ services.AddHttpClient(StudywiseDefaults.ApiName, client =>
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
-    AllowAutoRedirect = true,
-    MaxAutomaticRedirections = 1
-});
+    // Disabled so X-Studywise-Api-Key cannot leak across a 3xx to a different host.
+    AllowAutoRedirect = false
+})
+.AddHttpMessageHandler<ApiKeyDelegatingHandler>();
 
 services.AddSingleton(config);
+services.AddSingleton<ITokenProvider>(_ => new ApiKeyTokenProvider(config.ApiKey));
+services.AddTransient<IStudywiseTransport, HttpClientStudywiseTransport>();
 services.AddSingleton<DiagnosticRunner>();
 services.AddSingleton<IDiagnosticRunner>(sp => sp.GetRequiredService<DiagnosticRunner>());
 

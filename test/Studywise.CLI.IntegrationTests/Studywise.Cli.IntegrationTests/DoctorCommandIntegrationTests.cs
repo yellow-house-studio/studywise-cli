@@ -6,6 +6,7 @@ using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
 using Studywise.Cli.Formatting;
+using Studywise.Cli.Http;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -22,14 +23,21 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         server
             .Given(Request.Create().WithPath("/health").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
+        server
+            .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("{\"userId\":\"users/abc-123\",\"authMethod\":\"ApiKey\"}"));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
         var output = new TextDiagnosticReportFormatter().Format(report);
 
         output.Should().Contain("Studywise CLI Diagnostics");
         output.Should().Contain("Config:");
-        output.Should().Contain("API-nyckel:");
+        output.Should().Contain("API key:");
         output.Should().Contain("Connection:");
+        output.Should().Contain("Auth verify:");
         output.Should().Contain("All checks passed");
     }
 
@@ -40,6 +48,12 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         server
             .Given(Request.Create().WithPath("/health").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
+        server
+            .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("{\"userId\":\"users/abc-123\",\"authMethod\":\"ApiKey\"}"));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
         var output = JsonReporter.Format(report);
@@ -53,10 +67,11 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
 
         root.TryGetProperty("checks", out var checks).Should().BeTrue();
         checks.ValueKind.Should().Be(JsonValueKind.Array);
-        checks.GetArrayLength().Should().Be(3);
+        checks.GetArrayLength().Should().Be(4);
         checks[0].GetProperty("name").GetString().Should().Be("config");
         checks[1].GetProperty("name").GetString().Should().Be("api-key");
         checks[2].GetProperty("name").GetString().Should().Be("connection");
+        checks[3].GetProperty("name").GetString().Should().Be("auth-verify");
         new[] { "pass", "warn", "fail" }.Should().Contain(checks[0].GetProperty("status").GetString());
         new[] { "pass", "warn", "fail" }.Should().Contain(checks[1].GetProperty("status").GetString());
         new[] { "pass", "warn", "fail" }.Should().Contain(checks[2].GetProperty("status").GetString());
@@ -70,7 +85,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         var failedCount = root.GetProperty("failedCount").GetInt32();
         var warningCount = root.GetProperty("warningCount").GetInt32();
 
-        (passedCount + failedCount + warningCount).Should().Be(3);
+        (passedCount + failedCount + warningCount).Should().Be(4);
         failedCount.Should().Be(0);
         root.GetProperty("isSuccess").GetBoolean().Should().BeTrue();
     }
@@ -88,7 +103,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
 
         report.IsSuccess.Should().BeFalse();
         report.FailedCount.Should().Be(1);
-        output.Should().Contain("API-nyckel: FAIL");
+        output.Should().Contain("API key: FAIL");
     }
 
     [Test]
@@ -151,7 +166,8 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
             {
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(),
-                new ConnectionDiagnosticCheck(httpClientFactory)
+                new ConnectionDiagnosticCheck(httpClientFactory),
+                new AuthVerifyDiagnosticCheck(new HttpClientStudywiseTransport(httpClientFactory), new ApplicationConfig { ApiKey = apiKey ?? string.Empty })
             };
 
             return await new DiagnosticRunner().RunAsync(checks);

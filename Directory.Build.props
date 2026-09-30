@@ -1,0 +1,10 @@
+<Project>
+
+  <PropertyGroup>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <EnforceXmlDocs>true</EnforceXmlDocs>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);AD0001</WarningsNotAsErrors>
+  </PropertyGroup>
+
+</Project>
