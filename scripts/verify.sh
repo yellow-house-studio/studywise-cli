@@ -771,9 +771,10 @@ The gate rules:
      treated as intentionally opted-out (Coverlet already excludes
      files tagged [ExcludeFromCodeCoverage]).
 
-ReportGenerator has already done the per-class line deduplication
-(class-level + per-method <line> elements). We just extract the
-per-assembly line-rate and the per-file covered/valid counts.
+Per-line coverage in Cobertura is reported twice — once as a direct
+child of <class>/<lines> and once per <method>/<lines> sibling. We
+dedupe by line number so the totals match ReportGenerator's
+<coverage lines-covered/line-valid> attributes.
 """
 import json, subprocess, sys, xml.etree.ElementTree as ET
 
@@ -794,22 +795,55 @@ for pkg in root.findall(".//package"):
     classes_container = pkg.find("./classes")
     if classes_container is None:
         continue
+    # Dedupe line numbers across ALL classes that share a filename. A
+    # single source file can map to multiple <class> entries (partial
+    # classes, multiple types per file), and Cobertura emits each line
+    # twice — once as a direct child of <class>/<lines> and once per
+    # <method>/<lines> sibling. Both views have to be deduped so the
+    # totals match ReportGenerator's <coverage lines-covered/lines-valid>.
+    file_seen = {}
     for cls in classes_container.findall("./class"):
         filename = cls.get("filename") or "?"
         if filename not in files:
             files[filename] = {"covered": 0, "valid": 0, "assembly": asm}
-        # Direct <lines> child only — the per-method view is a sibling
-        # (under <methods>/<method>/<lines>) and reportgenerator has
-        # already merged them at the class level.
-        for line in cls.findall("./lines/line"):
+        if filename not in file_seen:
+            file_seen[filename] = set()
+        for line in list(cls.findall("./lines/line")) + list(cls.findall("./methods/method/lines/line")):
+            number = line.get("number")
+            if number is None or number in file_seen[filename]:
+                continue
+            file_seen[filename].add(number)
             files[filename]["valid"] += 1
             try:
                 if int(line.get("hits", "0")) > 0:
                     files[filename]["covered"] += 1
             except ValueError:
                 pass
-        assemblies[asm]["covered"] += files[filename]["covered"]
-        assemblies[asm]["valid"]   += files[filename]["valid"]
+
+# Per-assembly totals come from the <coverage> root attrs that
+# ReportGenerator already published. Re-summing the per-class lines
+# above diverges from that by a fraction of a line because
+# ReportGenerator's dedup also accounts for branch coverage and odd
+# double-emissions (e.g. a static constructor's lines appearing twice
+# under <methods>). Reading the published totals keeps the gate aligned
+# with what Phase 6.5 prints. The <coverage> attrs are aggregated across
+# ALL packages — fine for the CLI's one-package setup today; if the
+# repo ever has multiple assemblies in one Cobertura, fall back to
+# per-file sums.
+try:
+    total_covered = int(root.get("lines-covered", "0"))
+    total_valid = int(root.get("lines-valid", "0"))
+except (TypeError, ValueError):
+    total_covered = 0
+    total_valid = 0
+if total_valid > 0 and len(assemblies) == 1:
+    only_asm = next(iter(assemblies))
+    assemblies[only_asm] = {"covered": total_covered, "valid": total_valid}
+else:
+    for filename, fdata in files.items():
+        asm = fdata["assembly"]
+        assemblies[asm]["covered"] += fdata["covered"]
+        assemblies[asm]["valid"]   += fdata["valid"]
 
 # Read baseline
 with open(sys.argv[2]) as f:
