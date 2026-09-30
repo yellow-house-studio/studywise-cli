@@ -1,10 +1,10 @@
 {
+  "lastUpdated": "2026-09-30",
+  "commit": "008c072",
   "assemblies": {
     "studywise": {
-      "covered": 400,
-      "valid": 572
+      "covered": 242,
+      "valid": 366
     }
-  },
-  "commit": "fedee16",
-  "lastUpdated": "2026-09-30"
+  }
 }
