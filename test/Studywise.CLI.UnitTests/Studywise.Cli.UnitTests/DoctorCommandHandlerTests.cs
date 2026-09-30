@@ -5,6 +5,7 @@ using System.Text.Json;
 using Studywise.Cli.Commands.Doctor;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
+using Studywise.Cli.Http;
 
 namespace Studywise.CLI.UnitTests;
 
@@ -17,14 +18,15 @@ public class DoctorCommandHandlerTests
         var report = new DiagnosticReport(new[]
         {
             new DiagnosticCheckResult("config", DiagnosticStatus.Pass, "Config: OK"),
-            new DiagnosticCheckResult("api-key", DiagnosticStatus.Pass, "API-nyckel: OK"),
+            new DiagnosticCheckResult("api-key", DiagnosticStatus.Pass, "API key: OK"),
             new DiagnosticCheckResult("connection", DiagnosticStatus.Pass, "Connection: OK")
         });
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
+        var transport = new FakeTransport();
         var config = new ApplicationConfig { ApiKey = "test-key" };
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -48,8 +50,9 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
+        var transport = new FakeTransport();
         var config = new ApplicationConfig();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -66,13 +69,14 @@ public class DoctorCommandHandlerTests
     {
         var report = new DiagnosticReport(new[]
         {
-            new DiagnosticCheckResult("api-key", DiagnosticStatus.Fail, "API-nyckel: FAIL")
+            new DiagnosticCheckResult("api-key", DiagnosticStatus.Fail, "API key: FAIL")
         });
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
+        var transport = new FakeTransport();
         var config = new ApplicationConfig();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -86,6 +90,7 @@ public class DoctorCommandHandlerTests
     [TestCase("config", "config")]
     [TestCase("api-key", "api-key")]
     [TestCase("connection", "connection")]
+    [TestCase("auth-verify", "auth-verify")]
     [TestCase("CONFIG", "config")]
     [TestCase("Api-Key", "api-key")]
     public async Task HandleAsync_WithCheckName_PassesOnlySelectedCheck(
@@ -93,9 +98,10 @@ public class DoctorCommandHandlerTests
         string expectedCheckName)
     {
         var httpClientFactory = new FakeHttpClientFactory();
+        var transport = new FakeTransport();
         var config = new ApplicationConfig();
         var runner = new TrackingDiagnosticRunner();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -108,12 +114,13 @@ public class DoctorCommandHandlerTests
     }
 
     [Test]
-    public async Task HandleAsync_WithCheckNameAll_PassesAllThreeChecks()
+    public async Task HandleAsync_WithCheckNameAll_PassesAllFourChecks()
     {
         var httpClientFactory = new FakeHttpClientFactory();
+        var transport = new FakeTransport();
         var config = new ApplicationConfig();
         var runner = new TrackingDiagnosticRunner();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -121,19 +128,21 @@ public class DoctorCommandHandlerTests
             console,
             CancellationToken.None);
 
-        runner.CapturedChecks.Should().HaveCount(3);
+        runner.CapturedChecks.Should().HaveCount(4);
         runner.CapturedChecks[0].Name.Should().Be("config");
         runner.CapturedChecks[1].Name.Should().Be("api-key");
         runner.CapturedChecks[2].Name.Should().Be("connection");
+        runner.CapturedChecks[3].Name.Should().Be("auth-verify");
     }
 
     [Test]
     public async Task HandleAsync_WithUnknownCheckName_ReturnsExitCode1AndWritesToError()
     {
         var httpClientFactory = new FakeHttpClientFactory();
+        var transport = new FakeTransport();
         var config = new ApplicationConfig();
         var runner = new FakeDiagnosticRunner(new DiagnosticReport([]));
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -160,6 +169,12 @@ public class DoctorCommandHandlerTests
     private sealed class FakeHttpClientFactory : IHttpClientFactory
     {
         public HttpClient CreateClient(string name) => new HttpClient();
+    }
+
+    private sealed class FakeTransport : IStudywiseTransport
+    {
+        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
     }
 
     private sealed class TrackingDiagnosticRunner : IDiagnosticRunner

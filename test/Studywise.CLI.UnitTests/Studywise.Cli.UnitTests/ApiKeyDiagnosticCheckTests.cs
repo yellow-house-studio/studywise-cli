@@ -19,7 +19,7 @@ public class ApiKeyDiagnosticCheckTests
 
             result.Name.Should().Be("api-key");
             result.Status.Should().Be(DiagnosticStatus.Pass);
-            result.Message.Should().Be("API-nyckel: OK — finns (maskerad)");
+            result.Message.Should().Be("API key: OK — present (masked)");
         });
     }
 
@@ -36,7 +36,7 @@ public class ApiKeyDiagnosticCheckTests
             var result = await check.RunAsync();
 
             result.Status.Should().Be(DiagnosticStatus.Fail);
-            result.Message.Should().Be("API-nyckel: FAIL — saknas eller ar tom i config");
+            result.Message.Should().Be("API key: FAIL — missing or empty in config");
         });
     }
 
@@ -51,7 +51,7 @@ public class ApiKeyDiagnosticCheckTests
             var result = await check.RunAsync();
 
             result.Status.Should().Be(DiagnosticStatus.Fail);
-            result.Message.Should().Be("API-nyckel: FAIL — saknas eller ar tom i config");
+            result.Message.Should().Be("API key: FAIL — missing or empty in config");
         });
     }
 
@@ -67,7 +67,7 @@ public class ApiKeyDiagnosticCheckTests
             var result = await check.RunAsync();
 
             result.Message.Should().NotContain(secretValue);
-            result.Message.Should().Contain("maskerad");
+            result.Message.Should().Contain("masked");
         });
     }
 
