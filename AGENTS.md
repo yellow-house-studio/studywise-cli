@@ -16,13 +16,15 @@ expand.
 - Create the worktree from up-to-date `main`:
   ```bash
   git fetch origin && git checkout main && git reset --hard origin/main
-  git worktree add ../studywise-cli/<repo>-<NN>-<slug> -b chore/<NN>-<slug> main
+  git worktree add ../studywise-cli-<NN>-<slug> -b chore/<NN>-<slug> main
   ```
-- **Worktree paths in this repo go inside `studywise-cli/`**, not at the
-  parent level — i.e. `../studywise-cli/studywise-cli-32-local-ci`, not
-  `../studywise-cli-32-local-ci`. This repo shares the parent with
-  `studywise-api` and `studywise-app`; nested under `studywise-cli/`
-  keeps each repo's worktrees grouped.
+- **Worktree paths are flat at the parent level** — i.e.
+  `../studywise-cli-32-local-ci`, not `../studywise-cli/studywise-cli-32-local-ci`.
+  This matches the existing siblings (`studywise-cli-doc-tfm-fix`,
+  `studywise-cli-scriban-bump`) and the convention locked in by the
+  local-CI plan (`docs/plans/32-local-ci-scripts.md`). The previous
+  "nest under `studywise-cli/`" rule in this file was wrong; ignore any
+  older prompt that references it.
 - **After creating the worktree, stop and ask the user to move the harness**
   (change the agent's working directory) to the new worktree path before
   continuing with any edits, `git add`, or `git commit`. `git worktree add`
@@ -38,7 +40,7 @@ expand.
   on `main` directly.
 - When work is complete and verified, push the branch one last time and
   open the PR from there (`gh pr create --base main`).
-- Clean up with `git worktree remove ../studywise-cli/<worktree-name>` after
+- Clean up with `git worktree remove ../studywise-cli-<NN>-<slug>` after
   the PR merges.
 
 ## What "done" means
