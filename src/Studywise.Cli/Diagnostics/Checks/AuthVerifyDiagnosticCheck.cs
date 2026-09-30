@@ -5,15 +5,29 @@ using Studywise.Cli.Http;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
+/// <summary>
+/// Diagnostic check that probes <c>GET /api/v1/auth/verify</c> on the Studywise API and
+/// reports whether the configured API key authenticates successfully.
+/// <para>
+/// Returns <see cref="DiagnosticStatus.Warn"/> (SKIP) when no API key is configured.
+/// </para>
+/// </summary>
+/// <param name="transport">Transport used to send the request.</param>
+/// <param name="config">Resolved CLI configuration (the API key is read from here).</param>
 public sealed class AuthVerifyDiagnosticCheck(
     IStudywiseTransport transport,
     ApplicationConfig config) : IDiagnosticCheck
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
-    private const int TimeoutSeconds = 5;
 
+    /// <inheritdoc />
     public string Name => "auth-verify";
 
+    /// <summary>
+    /// Runs the check.
+    /// </summary>
+    /// <param name="cancellationToken">Token observed for cancellation.</param>
+    /// <returns>The check outcome.</returns>
     public async Task<DiagnosticCheckResult> RunAsync(CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(config.ApiKey))
@@ -57,6 +71,8 @@ public sealed class AuthVerifyDiagnosticCheck(
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
+            // Caller-cancelled - rethrow so callers can observe it. The remaining
+            // catches translate transport-level timeouts into a FAIL result.
             throw;
         }
         catch (TaskCanceledException)
@@ -64,7 +80,7 @@ public sealed class AuthVerifyDiagnosticCheck(
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Auth verify: FAIL — timeout after {TimeoutSeconds}s reaching {StudywiseDefaults.AuthVerifyPath}");
+                $"Auth verify: FAIL — timeout after {(int)RequestTimeout.TotalSeconds}s reaching {StudywiseDefaults.AuthVerifyPath}");
         }
         catch (HttpRequestException ex)
         {
@@ -116,6 +132,8 @@ public sealed class AuthVerifyDiagnosticCheck(
         }
         catch (JsonException)
         {
+            // Malformed body still surfaces as a successful HTTP response, so fall through
+            // to the unknown userId/authMethod display rather than failing the diagnostic.
             return (string.Empty, string.Empty);
         }
     }

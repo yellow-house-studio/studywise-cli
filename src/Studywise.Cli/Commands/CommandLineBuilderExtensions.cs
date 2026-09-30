@@ -6,8 +6,23 @@ using Studywise.Cli.Configuration;
 
 namespace Studywise.Cli.Commands;
 
+/// <summary>
+/// Extensions for wiring an <see cref="IServiceProvider"/> into a System.CommandLine pipeline.
+/// </summary>
 public static class CommandLineBuilderExtensions
 {
+    /// <summary>
+    /// Registers an <see cref="IServiceProvider"/> and the services it contains
+    /// with the command-line binding context, so handlers can be resolved via DI.
+    /// </summary>
+    /// <param name="builder">The command line builder to extend.</param>
+    /// <param name="serviceProvider">The DI container handlers will resolve from.</param>
+    /// <param name="services">
+    /// Optional service collection. When provided, every registered service and
+    /// implementation type is added to the binding context so handler constructors
+    /// can request them.
+    /// </param>
+    /// <returns>The same <paramref name="builder"/> for chaining.</returns>
     public static CommandLineBuilder UseDependencyInjection(
         this CommandLineBuilder builder,
         IServiceProvider serviceProvider,

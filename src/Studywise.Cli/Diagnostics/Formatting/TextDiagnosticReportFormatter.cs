@@ -2,8 +2,17 @@ using System.Text;
 
 namespace Studywise.Cli.Diagnostics.Formatting;
 
+/// <summary>
+/// Renders a <see cref="DiagnosticReport"/> as a human-readable text block
+/// (header, per-check lines with status markers, and a summary line).
+/// </summary>
 public sealed class TextDiagnosticReportFormatter
 {
+    /// <summary>
+    /// Formats the report as text.
+    /// </summary>
+    /// <param name="report">The report to render.</param>
+    /// <returns>The formatted text, including a trailing newline before the summary.</returns>
     public string Format(DiagnosticReport report)
     {
         var builder = new StringBuilder();

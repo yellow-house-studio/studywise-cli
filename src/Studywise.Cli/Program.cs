@@ -20,6 +20,7 @@ services.AddHttpClient(StudywiseDefaults.ApiName, client =>
 })
 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
 {
+    // Disabled so X-Studywise-Api-Key cannot leak across a 3xx to a different host.
     AllowAutoRedirect = false
 })
 .AddHttpMessageHandler<ApiKeyDelegatingHandler>();
