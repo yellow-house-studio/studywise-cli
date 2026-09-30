@@ -3,7 +3,6 @@ using System.CommandLine.Builder;
 using System.CommandLine.Invocation;
 using Microsoft.Extensions.DependencyInjection;
 using Studywise.Cli.Configuration;
-using System.Net.Http;
 
 namespace Studywise.Cli.Commands;
 

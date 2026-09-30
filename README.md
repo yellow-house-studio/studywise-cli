@@ -61,7 +61,7 @@ Run `studywise --help` for all available commands.
 
 ### Prerequisites
 
-- .NET 9.0 SDK
+- .NET 10.0 SDK
 - Git
 
 ### Building

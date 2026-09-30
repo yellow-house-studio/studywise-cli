@@ -4,9 +4,10 @@ using Studywise.Cli.Formatting;
 
 namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class JsonReporterTests
 {
-    [Fact]
+    [Test]
     public void Format_ReturnsExpectedJsonShape()
     {
         var report = new DiagnosticReport(
@@ -20,31 +21,31 @@ public class JsonReporterTests
         using var doc = JsonDocument.Parse(json);
         var root = doc.RootElement;
 
-        Assert.True(root.TryGetProperty("generatedAtUtc", out var generatedAtUtc));
-        Assert.Equal(JsonValueKind.String, generatedAtUtc.ValueKind);
-        Assert.True(DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _));
+        root.TryGetProperty("generatedAtUtc", out var generatedAtUtc).Should().BeTrue();
+        generatedAtUtc.ValueKind.Should().Be(JsonValueKind.String);
+        DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _).Should().BeTrue();
 
-        Assert.True(root.TryGetProperty("checks", out var checks));
-        Assert.Equal(JsonValueKind.Array, checks.ValueKind);
-        Assert.Equal(2, checks.GetArrayLength());
+        root.TryGetProperty("checks", out var checks).Should().BeTrue();
+        checks.ValueKind.Should().Be(JsonValueKind.Array);
+        checks.GetArrayLength().Should().Be(2);
 
-        Assert.True(checks[0].TryGetProperty("message", out var firstMessage));
-        Assert.Equal("Config: OK", firstMessage.GetString());
-        Assert.Equal("config", checks[0].GetProperty("name").GetString());
-        Assert.Equal("pass", checks[0].GetProperty("status").GetString());
+        checks[0].TryGetProperty("message", out var firstMessage).Should().BeTrue();
+        firstMessage.GetString().Should().Be("Config: OK");
+        checks[0].GetProperty("name").GetString().Should().Be("config");
+        checks[0].GetProperty("status").GetString().Should().Be("pass");
 
-        Assert.True(checks[1].TryGetProperty("message", out var secondMessage));
-        Assert.Equal("API-key: FAIL", secondMessage.GetString());
-        Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
-        Assert.Equal("fail", checks[1].GetProperty("status").GetString());
+        checks[1].TryGetProperty("message", out var secondMessage).Should().BeTrue();
+        secondMessage.GetString().Should().Be("API-key: FAIL");
+        checks[1].GetProperty("name").GetString().Should().Be("api-key");
+        checks[1].GetProperty("status").GetString().Should().Be("fail");
 
-        Assert.True(root.TryGetProperty("failedCount", out var failedCount));
-        Assert.Equal(1, failedCount.GetInt32());
-        Assert.True(root.TryGetProperty("passedCount", out var passedCount));
-        Assert.Equal(1, passedCount.GetInt32());
-        Assert.True(root.TryGetProperty("warningCount", out var warningCount));
-        Assert.Equal(0, warningCount.GetInt32());
-        Assert.True(root.TryGetProperty("isSuccess", out var isSuccess));
-        Assert.False(isSuccess.GetBoolean());
+        root.TryGetProperty("failedCount", out var failedCount).Should().BeTrue();
+        failedCount.GetInt32().Should().Be(1);
+        root.TryGetProperty("passedCount", out var passedCount).Should().BeTrue();
+        passedCount.GetInt32().Should().Be(1);
+        root.TryGetProperty("warningCount", out var warningCount).Should().BeTrue();
+        warningCount.GetInt32().Should().Be(0);
+        root.TryGetProperty("isSuccess", out var isSuccess).Should().BeTrue();
+        isSuccess.GetBoolean().Should().BeFalse();
     }
 }

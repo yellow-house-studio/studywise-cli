@@ -176,46 +176,11 @@ jobs:
       - name: Install verify.sh prerequisites
         run: ./scripts/setup-env.sh
 
-      - name: Copy Dev Proxy config
-        run: |
-          mkdir -p .devproxy
-          cp test/.devproxy/devproxyrc.json .devproxy/
-          cp test/.devproxy/studywise-health-mock.json .devproxy/
-
-      - name: Setup Dev Proxy
-        id: devproxy
-        uses: dev-proxy-tools/actions/setup@v1
-        with:
-          config-file: .devproxy/devproxyrc.json
-          auto-stop: true
-
-      # Mirror the ci-full.yml API-key fallback pattern. A missing
-      # STUDYWISE_API_KEY secret skips E2E (--scope=integration) so
-      # the deploy gate still runs the rest of the suite. Loud warning
-      # annotation surfaces the missing-secret state in the Actions UI.
-      - name: Detect STUDYWISE_API_KEY secret
-        id: api-key
-        env:
-          STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
-        run: |
-          if [ -n "$STUDYWISE_API_KEY" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-
       - name: Run verify.sh (full)
-        if: steps.api-key.outputs.present == 'true'
-        env:
-          STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
-          STUDYWISE_API_BASE_URL: ${{ steps.devproxy.outputs.proxy-url }}
+        # The integration tests build a WireMock server in-process and
+        # never dial the real Studywise API, so no STUDYWISE_API_KEY
+        # secret is required for the deploy gate.
         run: ./scripts/verify.sh --no-fail-fast
-
-      - name: Run verify.sh (integration — E2E skipped)
-        if: steps.api-key.outputs.present == 'false'
-        run: |
-          echo "::warning::STUDYWISE_API_KEY secret not configured on this repo. Deploying without E2E gate. Add the secret at https://github.com/${{ github.repository }}/settings/secrets/actions to enable full verify."
-          ./scripts/verify.sh --scope=integration --no-fail-fast
 
       - name: Upload verify logs on failure
         if: failure()

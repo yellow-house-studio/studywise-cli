@@ -2,8 +2,9 @@ using System.Runtime.InteropServices;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 
-namespace Studywise.Cli.UnitTests;
+namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class ConfigDiagnosticCheckTests : IDisposable
 {
     private readonly string _tempDir;
@@ -20,7 +21,6 @@ public class ConfigDiagnosticCheckTests : IDisposable
 
     public void Dispose()
     {
-        // Restore to original state: null if unset, original value if set
         if (_configEnvWasOriginallySet)
         {
             Environment.SetEnvironmentVariable("STUDYWISE_CONFIG_PATH", _originalConfigEnv);
@@ -55,7 +55,7 @@ public class ConfigDiagnosticCheckTests : IDisposable
         }
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_PassWhenConfigExistsAndReadable()
     {
         var configPath = Path.Combine(_tempDir, "config.json");
@@ -65,12 +65,12 @@ public class ConfigDiagnosticCheckTests : IDisposable
         var check = new ConfigDiagnosticCheck();
         var result = await check.RunAsync();
 
-        Assert.Equal(DiagnosticStatus.Pass, result.Status);
-        Assert.Contains("OK", result.Message);
-        Assert.Contains(configPath, result.Message);
+        result.Status.Should().Be(DiagnosticStatus.Pass);
+        result.Message.Should().Contain("OK");
+        result.Message.Should().Contain(configPath);
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_FailWhenConfigMissing()
     {
         var configPath = Path.Combine(_tempDir, "nonexistent.json");
@@ -79,19 +79,17 @@ public class ConfigDiagnosticCheckTests : IDisposable
         var check = new ConfigDiagnosticCheck();
         var result = await check.RunAsync();
 
-        Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains("missing", result.Message, StringComparison.OrdinalIgnoreCase);
-        Assert.Contains(configPath, result.Message);
+        result.Status.Should().Be(DiagnosticStatus.Fail);
+        result.Message.Should().Contain("missing");
+        result.Message.Should().Contain(configPath);
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_FailWhenConfigUnreadable_PermissionDenied()
     {
         var configPath = Path.Combine(_tempDir, "unreadable.json");
         File.WriteAllText(configPath, "{}");
 
-        // IsReadOnly=true blocks WRITES but NOT READS on Windows. Use UnixFileMode.None on Unix,
-        // skip on Windows (no portable way to make a file truly unreadable for the current user).
         if (!OperatingSystem.IsWindows())
         {
             File.SetUnixFileMode(configPath, UnixFileMode.None);
@@ -100,20 +98,18 @@ public class ConfigDiagnosticCheckTests : IDisposable
             var check = new ConfigDiagnosticCheck();
             var result = await check.RunAsync();
 
-            Assert.Equal(DiagnosticStatus.Fail, result.Status);
-            Assert.Contains("unreadable", result.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("permission", result.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains(configPath, result.Message);
+            result.Status.Should().Be(DiagnosticStatus.Fail);
+            result.Message.Should().Contain("unreadable");
+            result.Message.Should().Contain("permission");
+            result.Message.Should().Contain(configPath);
         }
         else
         {
-            // On Windows, skip this specific test since IsReadOnly doesn't prevent reads.
-            // A proper fix would use FilePermissionAuditRules or a truly unreadable location.
             await Task.CompletedTask;
         }
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_FailWhenConfigUnreadable_FileLocked()
     {
         var configPath = Path.Combine(_tempDir, "locked.json");
@@ -125,14 +121,14 @@ public class ConfigDiagnosticCheckTests : IDisposable
         {
             var result = await check.RunAsync();
 
-            Assert.Equal(DiagnosticStatus.Fail, result.Status);
-            Assert.Contains("unreadable", result.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains("locked", result.Message, StringComparison.OrdinalIgnoreCase);
-            Assert.Contains(configPath, result.Message);
+            result.Status.Should().Be(DiagnosticStatus.Fail);
+            result.Message.Should().Contain("unreadable");
+            result.Message.Should().Contain("locked");
+            result.Message.Should().Contain(configPath);
         }
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_NonexistentConfigPathFromEnv_FailsWithPathInMessage()
     {
         var configPath = Path.Combine(Path.GetTempPath(), "nonexistent_studywise_config_" + Guid.NewGuid());
@@ -140,10 +136,9 @@ public class ConfigDiagnosticCheckTests : IDisposable
         var check = new ConfigDiagnosticCheck();
         var result = await check.RunAsync();
 
-        Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains("missing", result.Message, StringComparison.OrdinalIgnoreCase);
+        result.Status.Should().Be(DiagnosticStatus.Fail);
+        result.Message.Should().Contain("missing");
 
-        // Verify the resolved path is the env var path (not the platform default)
-        Assert.Contains(configPath, result.Message);
+        Assert.That(result.Message, Does.Contain(configPath));
     }
 }

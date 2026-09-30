@@ -12,9 +12,10 @@ using WireMock.Server;
 
 namespace Studywise.CLI.IntegrationTests;
 
-public class DoctorCommandIntegrationTests
+[Category("Integration")]
+public class DoctorCommandIntegrationTests : BaseIntegrationTest
 {
-    [Fact]
+    [Test]
     public async Task Doctor_TextFormatting_ProducesReadableText()
     {
         using var server = WireMockServer.Start();
@@ -25,14 +26,14 @@ public class DoctorCommandIntegrationTests
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
         var output = new TextDiagnosticReportFormatter().Format(report);
 
-        Assert.Contains("Studywise CLI Diagnostics", output);
-        Assert.Contains("Config:", output);
-        Assert.Contains("API-nyckel:", output);
-        Assert.Contains("Connection:", output);
-        Assert.Contains("All checks passed", output);
+        output.Should().Contain("Studywise CLI Diagnostics");
+        output.Should().Contain("Config:");
+        output.Should().Contain("API-nyckel:");
+        output.Should().Contain("Connection:");
+        output.Should().Contain("All checks passed");
     }
 
-    [Fact]
+    [Test]
     public async Task Doctor_JsonFormatting_ProducesJsonReport()
     {
         using var server = WireMockServer.Start();
@@ -46,35 +47,35 @@ public class DoctorCommandIntegrationTests
         using var json = JsonDocument.Parse(output);
         var root = json.RootElement;
 
-        Assert.True(root.TryGetProperty("generatedAtUtc", out var generatedAtUtc));
-        Assert.Equal(JsonValueKind.String, generatedAtUtc.ValueKind);
-        Assert.True(DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _));
+        root.TryGetProperty("generatedAtUtc", out var generatedAtUtc).Should().BeTrue();
+        generatedAtUtc.ValueKind.Should().Be(JsonValueKind.String);
+        DateTimeOffset.TryParse(generatedAtUtc.GetString(), out _).Should().BeTrue();
 
-        Assert.True(root.TryGetProperty("checks", out var checks));
-        Assert.Equal(JsonValueKind.Array, checks.ValueKind);
-        Assert.Equal(3, checks.GetArrayLength());
-        Assert.Equal("config", checks[0].GetProperty("name").GetString());
-        Assert.Equal("api-key", checks[1].GetProperty("name").GetString());
-        Assert.Equal("connection", checks[2].GetProperty("name").GetString());
-        Assert.Contains(checks[0].GetProperty("status").GetString(), new[] { "pass", "warn", "fail" });
-        Assert.Contains(checks[1].GetProperty("status").GetString(), new[] { "pass", "warn", "fail" });
-        Assert.Contains(checks[2].GetProperty("status").GetString(), new[] { "pass", "warn", "fail" });
-        Assert.True(checks[0].TryGetProperty("message", out var configMessage));
-        Assert.False(string.IsNullOrWhiteSpace(configMessage.GetString()));
-        Assert.True(checks[1].TryGetProperty("message", out var apiKeyMessage));
-        Assert.False(string.IsNullOrWhiteSpace(apiKeyMessage.GetString()));
-        Assert.True(checks[2].TryGetProperty("message", out var connectionMessage));
-        Assert.False(string.IsNullOrWhiteSpace(connectionMessage.GetString()));
+        root.TryGetProperty("checks", out var checks).Should().BeTrue();
+        checks.ValueKind.Should().Be(JsonValueKind.Array);
+        checks.GetArrayLength().Should().Be(3);
+        checks[0].GetProperty("name").GetString().Should().Be("config");
+        checks[1].GetProperty("name").GetString().Should().Be("api-key");
+        checks[2].GetProperty("name").GetString().Should().Be("connection");
+        new[] { "pass", "warn", "fail" }.Should().Contain(checks[0].GetProperty("status").GetString());
+        new[] { "pass", "warn", "fail" }.Should().Contain(checks[1].GetProperty("status").GetString());
+        new[] { "pass", "warn", "fail" }.Should().Contain(checks[2].GetProperty("status").GetString());
+        checks[0].TryGetProperty("message", out var configMessage).Should().BeTrue();
+        configMessage.GetString().Should().NotBeNullOrWhiteSpace();
+        checks[1].TryGetProperty("message", out var apiKeyMessage).Should().BeTrue();
+        apiKeyMessage.GetString().Should().NotBeNullOrWhiteSpace();
+        checks[2].TryGetProperty("message", out var connectionMessage).Should().BeTrue();
+        connectionMessage.GetString().Should().NotBeNullOrWhiteSpace();
         var passedCount = root.GetProperty("passedCount").GetInt32();
         var failedCount = root.GetProperty("failedCount").GetInt32();
         var warningCount = root.GetProperty("warningCount").GetInt32();
 
-        Assert.Equal(3, passedCount + failedCount + warningCount);
-        Assert.Equal(0, failedCount);
-        Assert.True(root.GetProperty("isSuccess").GetBoolean());
+        (passedCount + failedCount + warningCount).Should().Be(3);
+        failedCount.Should().Be(0);
+        root.GetProperty("isSuccess").GetBoolean().Should().BeTrue();
     }
 
-    [Fact]
+    [Test]
     public async Task Doctor_ReturnsFailureWhenApiKeyIsMissing()
     {
         using var server = WireMockServer.Start();
@@ -85,12 +86,12 @@ public class DoctorCommandIntegrationTests
         var report = await RunDoctorDiagnosticsAsync(server.Url!);
         var output = new TextDiagnosticReportFormatter().Format(report);
 
-        Assert.False(report.IsSuccess);
-        Assert.Equal(1, report.FailedCount);
-        Assert.Contains("API-nyckel: FAIL", output);
+        report.IsSuccess.Should().BeFalse();
+        report.FailedCount.Should().Be(1);
+        output.Should().Contain("API-nyckel: FAIL");
     }
 
-    [Fact]
+    [Test]
     public async Task Doctor_ConnectionCheck_FailsWhenHealthRedirectsMoreThanOnce()
     {
         using var server = WireMockServer.Start();
@@ -107,8 +108,8 @@ public class DoctorCommandIntegrationTests
         var report = await RunDoctorDiagnosticsAsync(server.Url!, "test-key");
         var connection = report.Checks.Single(check => check.Name == "connection");
 
-        Assert.Equal(DiagnosticStatus.Fail, connection.Status);
-        Assert.Contains("/health returned 302", connection.Message);
+        connection.Status.Should().Be(DiagnosticStatus.Fail);
+        connection.Message.Should().Contain("/health returned 302");
     }
 
     private static async Task<DiagnosticReport> RunDoctorDiagnosticsAsync(string apiBaseUrl, string? apiKey = null)

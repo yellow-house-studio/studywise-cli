@@ -29,15 +29,12 @@ These scripts run CI-equivalent checks locally before you push.
   cspell is downloaded on first run and cached by npm. The repo-root
   `cspell.json` is the source of truth for the wordlist and ignore
   patterns; `--skip-cspell` opts out per run.
-- **Dev Proxy** (for E2E tests) — local devs run it via Dev Proxy
-  SDK (`devproxy` binary on PATH). In CI, `ci-full.yml` installs it
-  via `dev-proxy-tools/actions/setup@v1`. See
-  `docs/devenv/setup.md` for the local setup recipe.
-- `STUDYWISE_API_KEY` — needed for E2E tests (the CLI authenticates
-  via the `X-Studywise-Api-Key` header). Set it in the shell or in
-  `~/.secrets/studywise-cli.env`. `verify.sh --scope=unit` and
-  `--scope=integration` skip E2E without a key; `--scope=full` blocks
-  pre-flight with a clear fix-it pointer.
+
+No `STUDYWISE_API_KEY` is required for any local run. The integration
+tests build their own WireMock server in-process and set
+`STUDYWISE_API_BASE_URL` to the loopback URL inside the test body —
+they never dial the real Studywise API. See
+`docs/testing/testing-strategy.md` for the rationale.
 
 ## Canonical entry point: `scripts/verify.sh`
 
@@ -50,42 +47,42 @@ workflows in tandem stops being necessary — the workflows shell out to
 
 ### Scopes
 
-| Scope          | What runs                                                   | Time  |
-|----------------|-------------------------------------------------------------|-------|
-| `--scope=unit` | Restore + build + unit tests                                | 1-3m  |
-| `--scope=integration` | Restore + build + unit + integration tests            | 2-4m  |
-| `--scope=full` | Restore + build + unit + integration + e2e (needs API key) | 5-15m |
-| `--scope=fast`  | Same as `--scope=full` (CLI has no Fast/LongRunning split)  | 5-15m |
+| Scope          | What runs                                       | Time  |
+|----------------|-------------------------------------------------|-------|
+| `--scope=unit` | Restore + build + unit tests                    | 1-3m  |
+| `--scope=integration` | Restore + build + unit + integration tests | 2-4m  |
+| `--scope=full` | Restore + build + unit + integration tests      | 2-5m  |
+| `--scope=fast` | Same as `--scope=full` today                    | 2-5m  |
 
-`--scope=full` and `--scope=fast` are identical in this repo because
-xunit (the CLI's test framework) doesn't have the `Category=Fast`
-attribute pattern NUnit uses.
+`--scope=fast` is an alias for `--scope=full` because the CLI has no
+`[Category("LongRunning")]` tests. The api repo distinguishes
+`--scope=fast` with a `Category!=LongRunning` filter; if a LongRunning
+test ever lands here, `verify.sh` will gain the same filter and
+`--scope=fast` will start to diverge from `--scope=full`.
 
 ### What runs under each scope
 
-| Phase                          | unit | integration | full / fast |
-|--------------------------------|------|-------------|-------------|
-| 1. Pre-flight (STUDYWISE_API_KEY)| ✅   | ✅ (warn)   | ✅ (block)  |
-| 2. Restore                     | ✅   | ✅          | ✅          |
-| 3. Build (Release + WarningsAsErrors) | ✅ | ✅     | ✅          |
-| 4a. Format (`dotnet format`)   | ✅   | ✅          | ✅          |
-| 4b. Analyzers                  | ✅   | ✅          | ✅          |
-| 5a. gitleaks (if installed)    | ✅   | ✅          | ✅          |
-| 5b. actionlint (if installed)  | ✅   | ✅          | ✅          |
-| 5c. cspell                     | ✅   | ✅          | ✅          |
-| 5d. Security scan              | ✅   | ✅          | ✅          |
-| 6. Unit tests                  | ✅   | ✅          | ✅          |
-| 6. Integration tests           |      | ✅          | ✅          |
-| 6. E2E tests                   |      |             | ✅ + (if API key) |
-| 6.5. Coverage merge (ReportGenerator) | ✅ | ✅       | ✅          |
-| 7. Coverage gate                |      |             | ✅          |
-| 8. Auto-raise baseline         |      |             | ✅          |
-| 9. PR comment (`--post-comment`)| opt  | opt         | opt         |
+| Phase                                | unit | integration | full / fast |
+|--------------------------------------|------|-------------|-------------|
+| 1. Pre-flight (no-op today)          | ✅   | ✅          | ✅          |
+| 2. Restore                           | ✅   | ✅          | ✅          |
+| 3. Build (Release + WarningsAsErrors) | ✅  | ✅          | ✅          |
+| 4a. Format (`dotnet format`)         | ✅   | ✅          | ✅          |
+| 4b. Analyzers                        | ✅   | ✅          | ✅          |
+| 5a. gitleaks (if installed)          | ✅   | ✅          | ✅          |
+| 5b. actionlint (if installed)        | ✅   | ✅          | ✅          |
+| 5c. cspell                           | ✅   | ✅          | ✅          |
+| 5d. Security scan                    | ✅   | ✅          | ✅          |
+| 6. Unit tests                        | ✅   | ✅          | ✅          |
+| 6. Integration tests                 |      | ✅          | ✅          |
+| 6.5. Coverage merge (ReportGenerator)| ✅   | ✅          | ✅          |
+| 7. Coverage gate                     |      |             | ✅          |
+| 8. Auto-raise baseline               |      |             | ✅          |
+| 9. PR comment (`--post-comment`)     | opt  | opt         | opt         |
 
 All skip flags are independent (`--skip-format`, `--skip-analyzers`,
 `--skip-gitleaks`, `--skip-actionlint`, `--skip-cspell`,
-`--skip-security`, `--skip-e2e`, `--skip-coverage-gate`,
-`--no-auto-raise`).
+`--skip-security`, `--skip-coverage-gate`, `--no-auto-raise`).
 
 ### Error mode
 
@@ -113,9 +110,6 @@ All skip flags are independent (`--skip-format`, `--skip-analyzers`,
 # Investigate a specific failure — run everything, see everything.
 ./scripts/verify.sh --scope=full --no-fail-fast
 
-# Skip just the E2E phase (no api key handy).
-./scripts/verify.sh --scope=full --skip-e2e
-
 # Wipe TestResults/ and exit 0.
 ./scripts/verify.sh --clean
 ```
@@ -125,7 +119,7 @@ All skip flags are independent (`--skip-format`, `--skip-analyzers`,
 When `verify.sh` fails, the script prints the failing project + failing
 test names + first line of each error (parsed from the TRX file under
 `TestResults/Verify/`). Every stage writes
-`TestResults/<stage>/console.log` (full verbose xunit output,
+`TestResults/<stage>/console.log` (full verbose NUnit output,
 grep-able) and `TestResults/<stage>/stderr.log` so a failed test is
 inspectable without re-running. If the printed summary is insufficient,
 file an issue referencing `scripts/lib/test-report.sh` before adding

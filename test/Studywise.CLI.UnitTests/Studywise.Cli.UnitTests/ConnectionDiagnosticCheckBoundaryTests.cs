@@ -1,12 +1,12 @@
-using System.Net.Http;
 using System.Net;
+using System.Net.Http;
 using Moq;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
-using Xunit;
 
 namespace Studywise.CLI.UnitTests;
 
+[Category("Unit")]
 public class ConnectionDiagnosticCheckBoundaryTests
 {
     private static IHttpClientFactory CreateMockFactory(HttpClient httpClient)
@@ -16,7 +16,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
         return mockFactory.Object;
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_WithSuccessStatus_ReturnsPass()
     {
         using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)))
@@ -28,14 +28,13 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         var result = await check.RunAsync();
 
-        Assert.Equal("connection", result.Name);
-        Assert.Equal(DiagnosticStatus.Pass, result.Status);
-        Assert.Contains("Connection: OK", result.Message);
+        result.Name.Should().Be("connection");
+        result.Status.Should().Be(DiagnosticStatus.Pass);
+        result.Message.Should().Contain("Connection: OK");
     }
 
-    [Theory]
-    [InlineData(HttpStatusCode.NotFound, 404)]
-    [InlineData(HttpStatusCode.ServiceUnavailable, 503)]
+    [TestCase(HttpStatusCode.NotFound, 404)]
+    [TestCase(HttpStatusCode.ServiceUnavailable, 503)]
     public async Task RunAsync_WithNonSuccessStatus_ReturnsFail(HttpStatusCode statusCode, int expectedCode)
     {
         using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => new HttpResponseMessage(statusCode)))
@@ -47,12 +46,12 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         var result = await check.RunAsync();
 
-        Assert.Equal("connection", result.Name);
-        Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains($"/health returned {expectedCode}", result.Message);
+        result.Name.Should().Be("connection");
+        result.Status.Should().Be(DiagnosticStatus.Fail);
+        result.Message.Should().Contain($"/health returned {expectedCode}");
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_WithRequestTimeout_ReturnsFail()
     {
         using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => throw new TaskCanceledException("request timed out")))
@@ -64,12 +63,12 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         var result = await check.RunAsync();
 
-        Assert.Equal("connection", result.Name);
-        Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains("timeout after 5s", result.Message);
+        result.Name.Should().Be("connection");
+        result.Status.Should().Be(DiagnosticStatus.Fail);
+        result.Message.Should().Contain("timeout after 5s");
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_WithUnreachableHost_ReturnsFail()
     {
         using var httpClient = new HttpClient(new StubHttpMessageHandler(_ => throw new HttpRequestException("Name or service not known")))
@@ -81,13 +80,13 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         var result = await check.RunAsync();
 
-        Assert.Equal("connection", result.Name);
-        Assert.Equal(DiagnosticStatus.Fail, result.Status);
-        Assert.Contains("could not reach /health", result.Message);
-        Assert.Contains("HttpRequestException", result.Message);
+        result.Name.Should().Be("connection");
+        result.Status.Should().Be(DiagnosticStatus.Fail);
+        result.Message.Should().Contain("could not reach /health");
+        result.Message.Should().Contain("HttpRequestException");
     }
 
-    [Fact]
+    [Test]
     public async Task RunAsync_WithCancelledToken_PropagatesCancellation()
     {
         using var httpClient = new HttpClient { BaseAddress = new Uri("http://127.0.0.1:65535") };
@@ -98,7 +97,8 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         var check = new ConnectionDiagnosticCheck(factory);
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => check.RunAsync(cts.Token));
+        Func<Task> act = () => check.RunAsync(cts.Token);
+        await act.Should().ThrowAsync<OperationCanceledException>();
     }
 
     private sealed class StubHttpMessageHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) : HttpMessageHandler

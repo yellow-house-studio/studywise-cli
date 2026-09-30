@@ -57,9 +57,9 @@ Note: cspell is invoked via \`npx cspell@10\` on demand from verify.sh
 (Phase 5c); it has no separate setup step. The Node prerequisite is
 already covered by the \`node\` entry above.
 
-STUDYWISE_API_KEY is required for E2E tests but is not a tool — it's
-read directly from the shell or ~/.secrets/studywise-cli.env by
-verify.sh's preflight_api_key. See docs/devenv/setup.md.
+STUDYWISE_API_KEY is not needed for local test runs. Integration
+tests build a WireMock server in-process and never dial the real
+Studywise API. See docs/testing/testing-strategy.md.
 
 Flags:
   --check   Don't install anything; just verify what's already ready.

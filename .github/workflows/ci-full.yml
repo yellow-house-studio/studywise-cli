@@ -122,7 +122,7 @@ jobs:
     needs: [detect-changes]
     if: needs.detect-changes.outputs.docs_only != 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -140,50 +140,14 @@ jobs:
       - name: Install verify.sh prerequisites
         run: ./scripts/setup-env.sh
 
-      - name: Copy Dev Proxy config
-        run: |
-          mkdir -p .devproxy
-          cp test/.devproxy/devproxyrc.json .devproxy/
-          cp test/.devproxy/studywise-health-mock.json .devproxy/
-
-      - name: Setup Dev Proxy
-        id: devproxy
-        uses: dev-proxy-tools/actions/setup@v1
-        with:
-          config-file: .devproxy/devproxyrc.json
-          auto-stop: true
-
-      # STUDYWISE_API_KEY gates E2E tests (Phase 6 of verify.sh). If the
-      # repo secret isn't configured yet, fall back to --scope=integration
-      # — runs every other gate (format, analyzers, gitleaks, actionlint,
-      # cspell, security scan, unit, integration, coverage merge + gate,
-      # baseline auto-raise) and gracefully skips E2E + post-PR comment.
-      # The fallback is loud: a `::warning::` annotation surfaces in the
-      # PR checks UI so the missing-secret state is visible.
-      - name: Detect STUDYWISE_API_KEY secret
-        id: api-key
-        run: |
-          if [ -n "$STUDYWISE_API_KEY" ]; then
-            echo "present=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "present=false" >> "$GITHUB_OUTPUT"
-          fi
-        env:
-          STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
-
+      # Single verify.sh invocation under --scope=full. The integration
+      # tests build their own WireMock server in-process and never dial
+      # the real Studywise API — no STUDYWISE_API_KEY secret, no Dev
+      # Proxy, no `pull_request_review`-gated E2E phase. Coverage gate
+      # + baseline auto-raise run as part of this single invocation.
       - name: Run verify.sh --scope=full
-        if: steps.api-key.outputs.present == 'true'
-        env:
-          STUDYWISE_API_KEY: ${{ secrets.STUDYWISE_API_KEY }}
-          STUDYWISE_API_BASE_URL: ${{ steps.devproxy.outputs.proxy-url }}
+        if: needs.detect-changes.outputs.docs_only != 'true'
         run: ./scripts/verify.sh --scope=full --no-fail-fast
-
-      - name: Run verify.sh --scope=integration (E2E skipped — STUDYWISE_API_KEY secret not configured)
-        if: steps.api-key.outputs.present == 'false'
-        run: |
-          echo "::warning::STUDYWISE_API_KEY secret not configured on this repo. Running --scope=integration (E2E skipped). Add the secret at https://github.com/${{ github.repository }}/settings/secrets/actions to enable full CI."
-          ./scripts/verify.sh --scope=integration --no-fail-fast
-
       - name: Upload test results on failure
         if: failure()
         uses: actions/upload-artifact@v5

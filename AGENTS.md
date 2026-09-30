@@ -57,11 +57,16 @@ Two local runs gate the work:
 CLI specifics layered on top of the contract above (don't override it,
 just adapt the right CLI knobs):
 
-- `--scope=fast` here == `--scope=full` (CLI has no Fast/LongRunning
-  split; xunit doesn't have the attribute pattern NUnit uses).
-- E2E phase under `--scope=full` needs `STUDYWISE_API_KEY` in the shell
-  or `~/.secrets/studywise-cli.env` (read by verify.sh's pre-flight).
-  `--scope=integration` skips E2E cleanly without the key.
+- `--scope=fast` here == `--scope=full`. The CLI uses NUnit 5 with
+  `[Category("Unit")]` and `[Category("Integration")]` markers, but no
+  `[Category("LongRunning")]` tests exist today. If a LongRunning test
+  ever lands, `--scope=fast` will gain the standard
+  `--filter "Category!=LongRunning"` to diverge from `--scope=full`.
+- No E2E phase. Per the org test strategy, E2E belongs in the frontend
+  repo; the CLI's two layers are Unit + Integration. Integration tests
+  build a WireMock server in-process and never dial the real Studywise
+  API, so no `STUDYWISE_API_KEY` secret is needed for any local or CI
+  run. See `docs/testing/testing-strategy.md`.
 - If verify.sh can't run locally (missing tool, network issue), STOP
   and tell the user — don't substitute `dotnet test <one-project>`.
   `./scripts/setup-env.sh` fixes most local blockers.
