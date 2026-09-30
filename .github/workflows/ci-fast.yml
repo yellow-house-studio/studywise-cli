@@ -1,5 +1,22 @@
 name: CI Fast
 
+# PR-triggered fast gate. Mirrors studywise-api pr-gate-fast.yml: this
+# workflow is the local mirror of scripts/verify.sh --scope=fast and
+# nothing else. Format / analyzers / gitleaks / actionlint / cspell /
+# security scan / unit + integration tests are all phases of the
+# verify.sh invocation — no separate jobs so workflow-vs-script drift
+# is impossible.
+#
+# --scope=fast is identical to --scope=full in the CLI repo today (no
+# LongRunning tests exist; see verify.sh docstring and
+# docs/testing/testing-strategy.md). The integration tests build a
+# WireMock server in-process and never dial the real Studywise API, so
+# no STUDYWISE_API_KEY secret is needed for this gate.
+#
+# Branch name: branches: [main] matches studywise-cli/main (this repo).
+# studywise-api uses master; that's a repo difference, not a workflow
+# design choice.
+
 on:
   pull_request:
     branches:
@@ -8,6 +25,7 @@ on:
       - opened
       - synchronize
       - reopened
+      - ready_for_review
   workflow_dispatch:
 
 concurrency:
@@ -20,13 +38,13 @@ permissions:
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
-  DOTNET_SKIP_FIRST_TIME_EXPERIMENT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
   build-and-test:
     name: Build and quality checks (fast)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -42,19 +60,23 @@ jobs:
           cache-dependency-path: '**/*.csproj'
 
       - name: Install verify.sh prerequisites
+        # Installs gitleaks + actionlint (the two optional verify.sh
+        # tooling the script auto-skips when missing). cspell runs
+        # via npx — no separate install needed.
         run: ./scripts/setup-env.sh
 
-      - name: Run verify.sh --scope=integration
-        # `--scope=integration` runs every gate except coverage gate +
-        # baseline auto-raise. PR Full Gate (ci-full.yml) handles those
-        # on PR approval. The fast path catches format drift, analyzer
-        # warnings, gitleaks leaks, actionlint errors, cspell misses,
-        # vulnerable packages, unit + integration test failures —
-        # without the cost of the full coverage merge + gate.
+      - name: Run verify.sh --scope=fast
+        # `--scope=fast` is the verify.sh entry point that PR Fast
+        # should always run. In the CLI repo today it is identical to
+        # `--scope=full` (no LongRunning tests exist; see
+        # docs/testing/testing-strategy.md). The integration tests
+        # build a WireMock server in-process and never dial the real
+        # Studywise API, so no STUDYWISE_API_KEY secret is required.
         #
         # `--no-fail-fast` collects all phase failures into one summary
-        # (the fail-fast default would stop on the first broken phase).
-        run: ./scripts/verify.sh --scope=integration --no-fail-fast
+        # (the fail-fast default would stop on the first broken phase
+        # and hide later failures behind the same red check).
+        run: ./scripts/verify.sh --scope=fast --no-fail-fast
 
       - name: Upload test results on failure
         if: failure()

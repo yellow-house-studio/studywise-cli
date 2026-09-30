@@ -1,41 +1,170 @@
-name: CI Production
+name: Release Deploy
+
+# Scheduled release workflow — daily 14:00 UTC (5h after studywise-api
+# at 09:00 UTC so the two repos don't race the same infrastructure
+# window). Mirrors studywise-api release-deploy.yml shape:
+#
+#   1. detect-pending     — diff main SHA vs last production GitHub
+#                          Release's target_commitish; skip everything
+#                          downstream if no production-relevant files
+#                          changed.
+#   2. verify             — ./scripts/verify.sh (no --scope flag → full,
+#                          runs unit + integration + E2E + coverage
+#                          gate + baseline auto-raise). Fail blocks the
+#                          publish chain.
+#   3. version-bump       — anothrNick/github-tag-action computes next
+#                          version from conventional commits since the
+#                          last tag, pushes the vX.Y.Z tag.
+#   4. build-and-package  — Release build + self-contained linux-x64
+#                          binary + NuGet pack.
+#   5. create-release     — GitHub Release via softprops/action-gh-release
+#                          with the .zip + .nupkg attached.
+#
+# Replace the previous push-to-main trigger. Accidental pushes to main
+# no longer publish a release; production releases happen on the cron
+# cadence (or via `gh workflow run ci-production.yml --ref main`).
+#
+# version.json convention is intentionally NOT introduced — the CLI
+# uses anothrNick/github-tag-action to compute versions from existing
+# git tags + conventional commit history. The csproj's <Version>0.1.0
+# is the lower bound for the first bump; after the first tag the
+# csproj is not the source of truth (the tag is).
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - '**/*.md'
-      - 'docs/**'
-      - 'LICENSE'
-      - '.gitignore'
-      - '.cursor/**'
-      - '.opencode/**'
-      - '.codex/**'
+  schedule:
+    - cron: '0 14 * * *'
   workflow_dispatch:
+    inputs:
+      force_release:
+        description: 'Force a release+deploy even if no production-relevant files changed'
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ${{ github.workflow }}-release-deploy
+  cancel-in-progress: false
 
 permissions:
   contents: write
   packages: write
-  attestations: write
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
 
 jobs:
-  build-and-package:
+  detect-pending:
+    name: Detect pending deployment
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 5
+    outputs:
+      has_pending_deployments: ${{ steps.detect.outputs.has_pending_deployments }}
+      version: ${{ steps.detect.outputs.version }}
+      reason: ${{ steps.detect.outputs.reason }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Detect pending deployments
+        id: detect
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FORCE="${{ inputs.force_release }}"
+          if [[ "$FORCE" == "true" ]]; then
+            echo "force_release=true — bypassing detect-pending"
+            {
+              echo "has_pending_deployments=true"
+              echo "reason=force_release_override"
+              echo "version=$(git rev-parse HEAD)"
+            } >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          REPO="${{ github.repository }}"
+          MAIN_SHA="$(git rev-parse HEAD)"
+          echo "Main SHA: ${MAIN_SHA}"
+
+          # Most recent published GitHub Release — the source of truth
+          # for "what's already in production". `target_commitish` is
+          # the SHA the release was published from; for releases created
+          # by this workflow that's the main tip at tag time.
+          #
+          # jq filter narrows to non-draft, non-prerelease (stable)
+          # releases sorted by created-at desc. Falls back to empty
+          # string when no release exists yet (first deploy).
+          LAST_RELEASE_INFO=$(gh api "/repos/${REPO}/releases?per_page=20" \
+            | jq -r '[.[] | select(.draft == false and .prerelease == false)]
+                     | sort_by(.created_at) | reverse | first
+                     | "\(.target_commitish // "") \(.tag_name // "")"' 2>/dev/null || echo "")
+
+          LAST_PROD_SHA=$(echo "$LAST_RELEASE_INFO" | awk '{print $1}')
+          LAST_TAG=$(echo "$LAST_RELEASE_INFO" | awk '{print $2}')
+
+          if [[ -z "$LAST_PROD_SHA" || "$LAST_PROD_SHA" == "null" ]]; then
+            REASON="no_prior_release"
+            PENDING="true"
+          else
+            echo "Last prod release: tag=${LAST_TAG} sha=${LAST_PROD_SHA:0:12}"
+            if [[ "$LAST_PROD_SHA" == "$MAIN_SHA" ]]; then
+              REASON="release_sha_matches_main"
+              PENDING="false"
+            else
+              # Production-relevant = anything that affects what an
+              # end user would see when they install the binary or
+              # pull the nupkg. Same pattern studywise-api uses:
+              # src/, project files, nuget config, build props, CI
+              # definitions. Docs / agent skills / .gitignore do NOT
+              # gate a deploy.
+              PRODUCTION_CHANGES=$(git diff --name-only "$LAST_PROD_SHA" "$MAIN_SHA" 2>/dev/null \
+                | grep -vE '\.(md|txt)$' \
+                | grep -E '^src/|\.csproj$|\.sln$|nuget\.config|Directory\.Build\.|\.github/workflows/' || true)
+
+              if [[ -z "$PRODUCTION_CHANGES" ]]; then
+                REASON="no_production_relevant_changes_since_last_release"
+                PENDING="false"
+              else
+                REASON="production_relevant_changes_pending"
+                PENDING="true"
+                echo "Production-relevant files changed since last release (${LAST_PROD_SHA:0:7}..${MAIN_SHA:0:7}):"
+                printf '%s\n' "$PRODUCTION_CHANGES"
+              fi
+            fi
+          fi
+
+          echo "Reason: ${REASON}"
+          {
+            echo "has_pending_deployments=${PENDING}"
+            echo "reason=${REASON}"
+            echo "version=${MAIN_SHA}"
+          } >> "$GITHUB_OUTPUT"
+
+          if [[ "$PENDING" == "false" ]]; then
+            echo ""
+            echo "No pending deployments. Reason: ${REASON}"
+            echo "Exiting successfully — nothing to do."
+          else
+            echo ""
+            echo "Pending deployments detected. Reason: ${REASON}"
+            echo "Proceeding with release pipeline."
+          fi
+
+  verify:
+    name: Run verify.sh (full)
+    needs: detect-pending
+    if: needs.detect-pending.outputs.has_pending_deployments == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          fetch-depth: 0
+          ref: main
+          fetch-depth: 1
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v5
@@ -44,7 +173,45 @@ jobs:
           cache: true
           cache-dependency-path: '**/*.csproj'
 
-      - name: Determine version bump
+      - name: Install verify.sh prerequisites
+        run: ./scripts/setup-env.sh
+
+      - name: Run verify.sh (full)
+        # The integration tests build a WireMock server in-process and
+        # never dial the real Studywise API, so no STUDYWISE_API_KEY
+        # secret is required for the deploy gate.
+        run: ./scripts/verify.sh --no-fail-fast
+
+      - name: Upload verify logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v5
+        with:
+          name: release-verify-failure-${{ github.run_id }}
+          path: TestResults/Verify
+          retention-days: 7
+
+  version-bump:
+    name: Compute + push version tag
+    needs: detect-pending
+    if: needs.detect-pending.outputs.has_pending_deployments == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      version: ${{ steps.tag.outputs.new_tag }}
+      release_sha: ${{ steps.sha.outputs.release_sha }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git identity
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "github-actions[bot]"
+
+      - name: Determine next version
         id: tag
         uses: anothrNick/github-tag-action@v1
         env:
@@ -53,26 +220,113 @@ jobs:
           DEFAULT_BUMP: patch
           RELEASE_BRANCHES: main
 
+      - name: Force-push tag
+        # --force on both the local tag (-f) and the push so a re-run
+        # that computes the same version can overwrite an existing
+        # remote tag rather than failing with 'tag already exists'.
+        run: |
+          git tag -f "${{ steps.tag.outputs.new_tag }}"
+          git push --force origin "refs/tags/${{ steps.tag.outputs.new_tag }}"
+
+      - name: Capture release SHA
+        id: sha
+        run: echo "release_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  build-and-package:
+    name: Build + package binary + nupkg
+    needs: [detect-pending, verify, version-bump]
+    if: |
+      always() &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
+      needs.detect-pending.outputs.has_pending_deployments == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VERSION_TAG: ${{ needs.version-bump.outputs.version }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.version-bump.outputs.release_sha }}
+          fetch-depth: 1
+
+      # Strip the leading 'v' from the tag (v0.2.0 → 0.2.0) and write
+      # VERSION_BARE to $GITHUB_ENV so the dotnet commands below can
+      # use it. Inline the strip rather than using ${{ steps.* }} in
+      # the job env block (steps context is not available there).
+      - name: Compute bare version (strip 'v' prefix)
+        run: |
+          v="${{ env.VERSION_TAG }}"
+          bare="${v#v}"
+          echo "VERSION_BARE=${bare}" >> "$GITHUB_ENV"
+          echo "Tag: ${v} → Version: ${bare}"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 9.0.x
+          cache: true
+          cache-dependency-path: '**/*.csproj'
+
       - name: Restore dependencies
         run: dotnet restore Studywise.Cli.sln
 
       - name: Build
-        run: dotnet build Studywise.Cli.sln -c Release --no-restore "/p:TreatWarningsAsErrors=true"
+        run: |
+          dotnet build Studywise.Cli.sln -c Release --no-restore \
+            "/p:TreatWarningsAsErrors=true" \
+            "/p:Version=${VERSION_BARE}"
 
       - name: Publish self-contained binary
-        run: dotnet publish src/Studywise.Cli/Studywise.Cli.csproj -c Release --runtime linux-x64 --self-contained true -p:PublishSingleFile=true -p:PublishTrimmed=false -o ./publish/linux-x64
+        run: |
+          dotnet publish src/Studywise.Cli/Studywise.Cli.csproj -c Release --runtime linux-x64 \
+            --self-contained true \
+            -p:PublishSingleFile=true \
+            -p:PublishTrimmed=false \
+            -p:Version="${VERSION_BARE}" \
+            -o ./publish/linux-x64
+
+      - name: Zip binary
+        run: |
+          cd ./publish/linux-x64 && zip -r ../studywise-linux-x64.zip .
 
       - name: Create NuGet package
-        run: dotnet pack src/Studywise.Cli/Studywise.Cli.csproj -c Release --no-build -o ./publish
+        run: |
+          dotnet pack src/Studywise.Cli/Studywise.Cli.csproj -c Release --no-build \
+            -p:Version="${VERSION_BARE}" \
+            -p:PackageVersion="${VERSION_BARE}" \
+            -o ./publish
 
-      - name: Package binary
-        run: cd ./publish/linux-x64 && zip -r ../studywise-linux-x64.zip .
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: cli-release-artifacts
+          path: |
+            publish/*.zip
+            publish/*.nupkg
+          retention-days: 30
 
+  create-release:
+    name: Create GitHub Release
+    needs: [detect-pending, verify, version-bump, build-and-package]
+    if: |
+      always() &&
+      (needs.verify.result == 'success' || needs.verify.result == 'skipped') &&
+      needs.detect-pending.outputs.has_pending_deployments == 'true' &&
+      needs.build-and-package.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ./publish/*.zip,./publish/*.nupkg
+          tag_name: ${{ needs.version-bump.outputs.version }}
+          name: Release ${{ needs.version-bump.outputs.version }}
           generate_release_notes: true
-          prerelease: ${{ contains(steps.tag.outputs.new_tag, '-') }}
+          prerelease: ${{ contains(needs.version-bump.outputs.version, '-') }}
+          files: |
+            publish/*.zip
+            publish/*.nupkg
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

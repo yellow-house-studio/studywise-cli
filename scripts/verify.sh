@@ -235,6 +235,13 @@ while [[ $# -gt 0 ]]; do
                 fast|full|unit|integration) ;;
                 *) echo "ERROR: --scope must be one of fast|full|unit|integration (got: $SCOPE)" >&2; usage >&2; exit 2 ;;
             esac
+            # --scope=fast is documented as an alias for --scope=full
+            # today (CLI has no [Category("LongRunning")] tests).
+            # Normalise so downstream branches (coverage gate threshold,
+            # etc.) treat them identically.
+            if [[ "$SCOPE" == "fast" ]]; then
+                SCOPE="full"
+            fi
             ;;
         --no-fail-fast)     FAIL_FAST=0 ;;
         --skip-format)      RUN_FORMAT=0 ;;
@@ -406,18 +413,18 @@ phase_restore() {
     rm -f "$RESTORE_LOG"
     return 0
 }
-run_phase "Restore" phase_restore
+run_phase "restore" phase_restore
 
 # ─── Phase 3: Build ─────────────────────────────────────────────────────
 echo "[verify] === Phase 3: Build (Release) ==="
-run_phase "Build" \
+run_phase "build" \
     run_stage "Build (Release, TreatWarningsAsErrors=true)" "$RESULTS_DIR/Build" --no-trx \
         "$DOTNET" build "$SLN" "${DOTNET_BUILD_FLAGS[@]}"
 
 # ─── Phase 4a: Format ───────────────────────────────────────────────────
 if [[ "$RUN_FORMAT" == "1" ]]; then
     echo "[verify] === Phase 4a: Code formatting ==="
-    run_phase "Format" \
+    run_phase "format" \
         run_stage "Code formatting check" "$RESULTS_DIR/Format" --no-trx \
             "$DOTNET" format "$SLN" --verify-no-changes --verbosity minimal
 fi
@@ -425,7 +432,7 @@ fi
 # ─── Phase 4b: Analyzers ────────────────────────────────────────────────
 if [[ "$RUN_ANALYZERS" == "1" ]]; then
     echo "[verify] === Phase 4b: Analyzers ==="
-    run_phase "Analyzers" \
+    run_phase "analyzers" \
         run_stage "Security and thread safety analyzers" "$RESULTS_DIR/Analyzers" --no-trx \
             "$DOTNET" build "$SLN" -c Release --no-restore \
                 "/p:EnableNETAnalyzers=true" \
@@ -1125,6 +1132,15 @@ fi
 
 if [[ "$OVERALL_RC" == "0" ]]; then
     echo "[verify] ✅ All selected checks passed."
+    # Reminder for the post-PR gate — the sticky PR comment is a
+    # separate obligation from a green run. CI checks turning green
+    # are necessary but not sufficient; the agent must re-run with
+    # --post-comment after `gh pr create` and verify the sticky
+    # comment landed. Skip the reminder when --post-comment already
+    # ran (it'd be redundant and noisy on every CI invocation).
+    if [[ "$RUN_PR_COMMENT" != "1" ]]; then
+        echo "[verify] ℹ️  --post-comment was not set. After 'gh pr create', re-run './scripts/verify.sh --post-comment' — the sticky comment is the PR-visible gate, not this run."
+    fi
 else
     echo "[verify] ❌ One or more checks failed." >&2
 fi
