@@ -1,0 +1,9 @@
+<Project>
+
+  <PropertyGroup>
+    <EnforceXmlDocs>false</EnforceXmlDocs>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+</Project>
