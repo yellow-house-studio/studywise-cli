@@ -25,14 +25,14 @@ expand.
   local-CI plan (`docs/plans/32-local-ci-scripts.md`). The previous
   "nest under `studywise-cli/`" rule in this file was wrong; ignore any
   older prompt that references it.
-- **After creating the worktree, stop and ask the user to move the harness**
-  (change the agent's working directory) to the new worktree path before
-  continuing with any edits, `git add`, or `git commit`. `git worktree add`
-  creates a separate working tree on disk but does NOT switch the agent's
-  working directory — subsequent Bash, Read, Edit, and `git` invocations
-  will still target `main` until the harness is moved. Verify the move
-  with `git rev-parse --show-toplevel` before continuing; if it does not
-  print the new worktree path, stop and ask rather than guessing.
+- **Move the harness immediately via `tools.opencode.session_move`.**
+  `git worktree add` creates a separate working tree on disk but does NOT
+  switch the agent's working directory — subsequent Bash, Read, Edit, and
+  `git` invocations would otherwise still target `main` until the harness
+  is moved. Right after `worktree add` + the initial empty-branch push,
+  call `tools.opencode.session_move({ directory: "<worktree absolute path>" })`,
+  then verify with `git rev-parse --show-toplevel`. If the printed path
+  is not the worktree, stop and tell the user instead of guessing.
 - **Immediately push the empty branch to origin** (`git push -u origin
   <branch>`) so it survives local-machine death, worktree corruption, or
   long context-switches. Repeat `git push` at the end of every work session.
