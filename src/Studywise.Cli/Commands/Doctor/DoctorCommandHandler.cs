@@ -4,7 +4,7 @@ using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
 using Studywise.Cli.Formatting;
-using Studywise.Cli.Http;
+using Studywise.Contracts.Http.Auth;
 
 namespace Studywise.Cli.Commands.Doctor;
 
@@ -16,7 +16,7 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
 {
     private readonly IDiagnosticRunner _runner;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IStudywiseTransport _transport;
+    private readonly AuthClient _authClient;
     private readonly ApplicationConfig _config;
 
     /// <summary>
@@ -24,17 +24,17 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
     /// </summary>
     /// <param name="runner">Runs the resolved diagnostic checks.</param>
     /// <param name="httpClientFactory">Used by <c>connection</c> check.</param>
-    /// <param name="transport">Used by the <c>auth-verify</c> check to hit the API.</param>
+    /// <param name="authClient">SDK client used by the <c>auth-verify</c> check.</param>
     /// <param name="config">Resolved CLI configuration (API base URL, key, etc.).</param>
     public DoctorCommandHandler(
         IDiagnosticRunner runner,
         IHttpClientFactory httpClientFactory,
-        IStudywiseTransport transport,
+        AuthClient authClient,
         ApplicationConfig config)
     {
         _runner = runner;
         _httpClientFactory = httpClientFactory;
-        _transport = transport;
+        _authClient = authClient;
         _config = config;
     }
 
@@ -47,12 +47,12 @@ public sealed class DoctorCommandHandler : ICommandHandler<DoctorCommandOptions>
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(),
                 new ConnectionDiagnosticCheck(_httpClientFactory),
-                new AuthVerifyDiagnosticCheck(_transport, _config)
+                new AuthVerifyDiagnosticCheck(_authClient, _config)
             },
             "config" => new[] { new ConfigDiagnosticCheck() },
             "api-key" => new[] { new ApiKeyDiagnosticCheck() },
             "connection" => new[] { new ConnectionDiagnosticCheck(_httpClientFactory) },
-            "auth-verify" => new[] { new AuthVerifyDiagnosticCheck(_transport, _config) },
+            "auth-verify" => new[] { new AuthVerifyDiagnosticCheck(_authClient, _config) },
             _ => null
         };
     }
