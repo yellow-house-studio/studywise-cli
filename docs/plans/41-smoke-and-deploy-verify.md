@@ -217,7 +217,7 @@ out-of-scope here.
   (expect non-zero exit) and a known-good URL (expect zero exit).
 - `smoke.yml` smoke-tested via `workflow_dispatch` against the dev's
   local machine. First iteration can use a publicly reachable URL
-  (e.g. `https://api.studywise.io/health`) to validate the workflow
+  (e.g. `https://api.studywise.io/health/live`) to validate the workflow
   plumbing even before staging exists.
 - After merge: dispatch the smoke workflow against staging and
   confirm the doctor checks pass.

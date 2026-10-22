@@ -23,7 +23,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/health/live").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
         server
             .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
@@ -48,7 +48,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/health/live").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
         server
             .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
@@ -97,7 +97,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/health/live").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
 
         var report = await RunDoctorDiagnosticsAsync(server.Url!);
@@ -113,7 +113,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/health/live").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(302).WithHeader("Location", "/redirect-1"));
         server
             .Given(Request.Create().WithPath("/redirect-1").UsingGet())
@@ -126,7 +126,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         var connection = report.Checks.Single(check => check.Name == "connection");
 
         connection.Status.Should().Be(DiagnosticStatus.Fail);
-        connection.Message.Should().Contain("/health returned 302");
+        connection.Message.Should().Contain("/health/live returned 302");
     }
 
     private static async Task<DiagnosticReport> RunDoctorDiagnosticsAsync(string apiBaseUrl, string? apiKey = null)
