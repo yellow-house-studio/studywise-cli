@@ -146,7 +146,7 @@ public sealed class ApplicationConfig
 /// </summary>
 public static class StudywiseDefaults
 {
-    /// <summary>Named HttpClient key used by both raw HttpClient and the transport seam.</summary>
+    /// <summary>Named HttpClient key used by the raw HttpClient that probes /health.</summary>
     public const string ApiName = "Studywise";
 
     /// <summary>Default Studywise API base URL.</summary>
@@ -154,10 +154,4 @@ public static class StudywiseDefaults
 
     /// <summary>User-Agent header sent on every outbound request.</summary>
     public const string UserAgent = "Studywise-CLI/1.0";
-
-    /// <summary>Request header carrying the API key on every outbound call.</summary>
-    public const string ApiKeyHeaderName = "X-Studywise-Api-Key";
-
-    /// <summary>Path of the API endpoint that validates the configured API key.</summary>
-    public const string AuthVerifyPath = "/api/v1/auth/verify";
 }

@@ -181,9 +181,34 @@ pipeline: `AuthClient`, `BooksClient`, `EducationLevelsClient`,
 `SchoolSubjectsClient`, `SchoolYearsClient`.
 
 The SDK sets `X-Studywise-Api-Key` itself via `ApiKeyAuthenticationHandler`,
-so once the SDK is wired this repo's `ApiKeyDelegatingHandler` and
-`ApiKeyTokenProvider` become redundant — as does `IStudywiseTransport` /
-`HttpClientStudywiseTransport` (the SDK's typed client replaces them).
+so this repo no longer declares the header, the credential, or a transport
+abstraction of its own — `ApiKeyDelegatingHandler`, `ApiKeyTokenProvider`,
+`ITokenProvider`, `IStudywiseTransport` and `HttpClientStudywiseTransport`
+are all gone.
+
+### Redirects and the API key
+
+`AddStudywiseClient` exposes no hook for the primary message handler, and
+`HttpClient` follows redirects by default. Because the SDK attaches the API
+key to every request, a 3xx from the API would forward the credential to the
+redirect target host.
+
+This repo therefore re-registers the SDK clients it uses on top of the SDK's
+own registration and disables redirect following:
+
+```csharp
+services.AddStudywiseClient(config.ApiBaseUrl, config.ApiKey);
+services.AddHttpClient<AuthClient>().UseStudywiseDefaults(config);
+```
+
+`StudywiseHttpClientExtensions.UseStudywiseDefaults` also applies the CLI's
+User-Agent. Both registrations configure the same named `HttpClient`, so the
+SDK's base address, timeout and API-key handler still apply.
+
+The durable fix belongs in the SDK — tracked as
+[studywise-api#890](https://github.com/yellow-house-studio/studywise-api/issues/890).
+Until it lands, the CLI-side configuration is covered by an integration test
+that asserts a redirect is not followed.
 
 ### Error handling
 
@@ -211,19 +236,20 @@ words/vocabulary client. CLI issues #33 (countries list) and #34–#36
 (homework vocabulary creation) therefore have **no SDK endpoint to sit on
 yet** — those need API-side SDK work first, not CLI work.
 
+The SDK also ships no health endpoint, so the `connection` diagnostic still
+uses a plain `HttpClient` to probe the API. Tracked as
+[studywise-api#891](https://github.com/yellow-house-studio/studywise-api/issues/891).
+Separately, that probe currently requests `/health`, which the API does not
+map — see [studywise-cli#48](https://github.com/yellow-house-studio/studywise-cli/issues/48).
+
 ---
 
-## Follow-ups this document does not cover
+## Prerequisites, and where they landed
 
-Deliberately left to the issue #31 wiring PR, where the SDK actually becomes
-a dependency:
-
-- `scripts/verify.sh` asserts "the CLI repo has no private NuGet feeds" in
-  two places — the header block, and the `NU1301` / 401 error handler. Both
-  go stale the moment the SDK is referenced, and the 401 handler will then
-  give the wrong message for a real credential failure.
-- The `nuget.config` above needs adding to the repo, and the
-  `NUGET_GITHUB_PACKAGES_TOKEN` secret needs creating.
-- `Directory.Packages.props` (Central Package Management) is referenced by
-  `docs/design/cli-design.md` § 7 but does not exist in this repo yet. Either
-  introduce it or amend § 7.
+| Prerequisite | Where it lives |
+|---|---|
+| `Directory.Packages.props` (Central Package Management) | repo root — the SDK version is pinned there |
+| `nuget.config` with package source mapping | repo root |
+| `NUGET_GITHUB_PACKAGES_TOKEN` repository secret | this repo, set alongside `studywise-api`'s copy |
+| CI source registration | `ci-fast.yml`, `ci-full.yml`, `ci-production.yml` |
+| `verify.sh` NuGet-auth wording | `scripts/verify.sh` — the header and the `NU1301` / 401 handler now describe the private feed |

@@ -33,27 +33,23 @@ The API key is passed via the `X-Studywise-Api-Key` header to the Studywise
 API. The header name is defined as the `StudywiseDefaults.ApiKeyHeaderName`
 constant so it lives in one place (`src/Studywise.Cli/Configuration/ApplicationConfig.cs`).
 
-## Token Provider
+## API Key Transport
 
-`ApiKeyTokenProvider` implements `ITokenProvider` and returns the configured
-API key. `ApiKeyDelegatingHandler` is a `DelegatingHandler` registered on the
-named `HttpClient` pipeline that injects the header on every request and
-clears any pre-existing `Authorization` so we never mix auth schemes.
+The API key is carried by the **SDK's** `ApiKeyAuthenticationHandler`, which
+sets the `X-Studywise-Api-Key` header on every outbound request. The CLI
+registers the SDK's typed clients with `AddStudywiseClient(baseAddress, apiKey)`
+and never touches the header itself — the CLI used to do this via
+`ApiKeyTokenProvider` + `ApiKeyDelegatingHandler`, both of which the SDK
+superseded.
 
-## SDK Swap Seam
+`ApiKeyAuthenticationHandler` is a no-op when the API key is empty, so the
+same client works against endpoints that do not require authentication.
 
-Commands and diagnostic checks should depend on `IStudywiseTransport`, not
-`IHttpClientFactory` directly. Today's `HttpClientStudywiseTransport`
-delegates to the named `HttpClient` (which has `ApiKeyDelegatingHandler` in
-its pipeline). When `studywise-api` ships a typed SDK
-(`Studywise.SDK`/equivalent), only `HttpClientStudywiseTransport` needs to
-be replaced — commands and checks stay untouched.
-
-```
-IStudywiseTransport (interface)
-└── HttpClientStudywiseTransport   # Current: raw HttpClient + handler
-    └── [future] StudywiseSdkTransport  # When SDK lands
-```
+The CLI additionally configures the SDK's clients to **not follow redirects**
+(`StudywiseHttpClientExtensions.UseStudywiseDefaults`). The SDK attaches the
+API key to every request, so following a 3xx would forward the credential to
+the redirect target host. Tracked upstream as
+[studywise-api#890](https://github.com/yellow-house-studio/studywise-api/issues/890).
 
 ## Auth Verification
 
@@ -63,7 +59,24 @@ on success, 401 + `{ "error": "InvalidKey" }` on bad credentials (rewritten
 by `AuthVerifyChallengeMiddleware` — no distinction between missing,
 invalid, and revoked keys). `studywise doctor --check auth-verify` exercises
 this endpoint; `studywise auth verify` (issue #23) is a follow-up that
-consumes the same transport.
+consumes the same SDK client.
+
+The CLI calls it through the SDK's `AuthClient.VerifyAsync()`, so the route
+and the response shape are the SDK's concern. The check maps the outcome onto
+its own diagnostic vocabulary:
+
+| Outcome | Diagnostic message |
+|---|---|
+| 200 | `Auth verify: OK — connected as <userId> (<authMethod>)` |
+| 401 | `Auth verify: FAIL — invalid or revoked API key` |
+| other status | `Auth verify: FAIL — server returned <code>` |
+| timeout | `Auth verify: FAIL — timeout after 5s` |
+| unreachable | `Auth verify: FAIL — could not reach the API (<ExceptionType>)` |
+| no key configured | `Auth verify: SKIP — no API key configured` |
+
+The SDK throws `HttpRequestException` on a non-success status, and since .NET 5
+that exception carries `StatusCode`, so the 401 case stays distinguishable
+from other failures.
 
 ## Out of Scope (Deliberate)
 

@@ -78,9 +78,9 @@ dotnet test Studywise.Cli.sln
 
 ## API Models
 
-The CLI uses the `YellowHouseStudio.Studywise.Contracts` NuGet package for type-safe API interactions. This package is published from the [studywise-api repo](https://github.com/yellow-house-studio/studywise-api) (see issue [#274](https://github.com/yellow-house-studio/studywise-api/issues/274)).
+The CLI uses the `YellowHouseStudio.Studywise.Sdk` NuGet package for type-safe API interactions. This package is published from the [studywise-api repo](https://github.com/yellow-house-studio/studywise-api) and is pinned in `Directory.Packages.props`.
 
-When the package is published, the CLI will reference it directly rather than duplicating models. Until then, models are defined locally in `src/Studywise.Cli/Models/`.
+The SDK owns every wire type and the API-key header. The CLI declares no API DTOs of its own — see [docs/design/cli-design.md](docs/design/cli-design.md) § 7 (SDK adoption) and [docs/architecture/sdk-consumption.md](docs/architecture/sdk-consumption.md) for how to restore it.
 
 ## Project Structure
 
@@ -88,9 +88,9 @@ When the package is published, the CLI will reference it directly rather than du
 studywise-cli/
 ├── src/Studywise.Cli/     # Main application
 │   ├── Commands/          # CLI commands
-│   ├── Auth/              # Authentication providers
 │   ├── Configuration/     # Configuration options
-│   └── Models/            # API DTOs (temporary, until Contracts package is available)
+│   ├── Diagnostics/       # Diagnostic checks and report formatting
+│   └── Http/              # HTTP client configuration
 ├── test/                  # Test projects
 └── .github/workflows/     # CI/CD
 ```

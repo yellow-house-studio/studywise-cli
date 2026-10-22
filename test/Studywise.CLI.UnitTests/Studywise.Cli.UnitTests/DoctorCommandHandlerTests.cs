@@ -5,7 +5,7 @@ using System.Text.Json;
 using Studywise.Cli.Commands.Doctor;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
-using Studywise.Cli.Http;
+using Studywise.Contracts.Http.Auth;
 
 namespace Studywise.CLI.UnitTests;
 
@@ -24,9 +24,9 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
-        var transport = new FakeTransport();
+        var authClient = BuildAuthClient();
         var config = new ApplicationConfig { ApiKey = "test-key" };
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, authClient, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -50,9 +50,9 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
-        var transport = new FakeTransport();
+        var authClient = BuildAuthClient();
         var config = new ApplicationConfig();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, authClient, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -74,9 +74,9 @@ public class DoctorCommandHandlerTests
 
         var runner = new FakeDiagnosticRunner(report);
         var httpClientFactory = new FakeHttpClientFactory();
-        var transport = new FakeTransport();
+        var authClient = BuildAuthClient();
         var config = new ApplicationConfig();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, authClient, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -98,10 +98,10 @@ public class DoctorCommandHandlerTests
         string expectedCheckName)
     {
         var httpClientFactory = new FakeHttpClientFactory();
-        var transport = new FakeTransport();
+        var authClient = BuildAuthClient();
         var config = new ApplicationConfig();
         var runner = new TrackingDiagnosticRunner();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, authClient, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -117,10 +117,10 @@ public class DoctorCommandHandlerTests
     public async Task HandleAsync_WithCheckNameAll_PassesAllFourChecks()
     {
         var httpClientFactory = new FakeHttpClientFactory();
-        var transport = new FakeTransport();
+        var authClient = BuildAuthClient();
         var config = new ApplicationConfig();
         var runner = new TrackingDiagnosticRunner();
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, authClient, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -139,10 +139,10 @@ public class DoctorCommandHandlerTests
     public async Task HandleAsync_WithUnknownCheckName_ReturnsExitCode1AndWritesToError()
     {
         var httpClientFactory = new FakeHttpClientFactory();
-        var transport = new FakeTransport();
+        var authClient = BuildAuthClient();
         var config = new ApplicationConfig();
         var runner = new FakeDiagnosticRunner(new DiagnosticReport([]));
-        var handler = new DoctorCommandHandler(runner, httpClientFactory, transport, config);
+        var handler = new DoctorCommandHandler(runner, httpClientFactory, authClient, config);
 
         var console = new TestConsole();
         var exitCode = await handler.HandleAsync(
@@ -171,11 +171,12 @@ public class DoctorCommandHandlerTests
         public HttpClient CreateClient(string name) => new HttpClient();
     }
 
-    private sealed class FakeTransport : IStudywiseTransport
-    {
-        public Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
-            => Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK));
-    }
+    private static AuthClient BuildAuthClient()
+        => new(new HttpClient(new StubHttpMessageHandler((_, _) =>
+                Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.OK))))
+        {
+            BaseAddress = new Uri("https://api.studywise.test")
+        });
 
     private sealed class TrackingDiagnosticRunner : IDiagnosticRunner
     {
