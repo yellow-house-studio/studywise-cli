@@ -177,6 +177,29 @@ Work PR with user corrections → follow-up retrospective PR (template
 + naming in `docs/retrospective/README.md`). Retrospective is its own
 PR — never bundled into the work PR.
 
+## Known failure modes
+
+Each of these is a correction that actually happened here. The full write-ups
+are in `docs/retrospective/`, and the index there maps "applies when" to the
+lesson.
+
+- **A 404 from a package feed is not evidence of absence.** Before claiming
+  a package version does not exist, query the feed's **version index** with
+  an authenticated request (`/download/<id>/index.json` on GitHub Packages)
+  and run the actual restore. The flatcontainer 404s for private packages
+  whether or not they exist.
+- **A tool's exit code is not the answer.** Report a merge, build or check
+  as clean only after performing the real operation — a dry run or a
+  convenience tool's status is a proxy, and `git merge-tree` has been known
+  to exit 0 on a genuinely conflicting merge.
+- **Never let a credential-bearing file reach a tool result.** Read the
+  value into a variable and use it. If a file must be shown, redact by
+  attribute name, not by pattern — and read the output before pasting it.
+- **When another team owes us something, the ask is the surface we
+  consume.** Their internal build, release or deployment machinery is theirs
+  to fix; say so once and accurately, without inflating it into our
+  dependency.
+
 ## Task Management
 
 1. **Plan First** for non-trivial work (3+ steps, architectural decisions,
