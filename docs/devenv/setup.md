@@ -14,6 +14,11 @@
 - `reportgenerator` .NET global tool (for coverage merge in
   `verify.sh`) — install via `./scripts/setup-env.sh reportgenerator`
 
+The SDK version is pinned in the repository's `global.json` (`10.0.100` with
+`rollForward: latestFeature`), so any **10.0.x** SDK satisfies it and the
+resolution does not depend on which SDK happens to be installed. If the
+`dotnet` on your path is not 10.0.x, `dotnet --version` will say so.
+
 The CLI's tests build a WireMock server in-process and never dial the
 real Studywise API. No `STUDYWISE_API_KEY` secret is needed for any
 local or CI run. See `docs/testing/testing-strategy.md`.
