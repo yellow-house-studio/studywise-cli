@@ -54,14 +54,15 @@ but does not exist in any build today.
 
 ## Commands
 
-The CLI currently ships one command:
+The CLI currently ships:
 
 - `studywise doctor` — run the diagnostic checks (`config`, `api-key`,
   `connection`, `auth-verify`)
+- `studywise auth verify` — confirm the configured API key authenticates, and
+  report which user it authenticates as
 
 Planned, and tracked in the [issue tracker](https://github.com/yellow-house-studio/studywise-cli/issues):
 
-- `studywise auth verify` — confirm the configured API key authenticates
 - `studywise education-level list` — list education levels for a country
 
 Run `studywise --help` for the commands available in your build.
