@@ -6,7 +6,12 @@ A command-line interface for Studywise, built for agents (Robert, Lilly) and end
 
 ### For Agents (Automated)
 
-Download the latest release from GitHub:
+No GitHub release has been published yet. The release workflow
+(`.github/workflows/ci-production.yml`) builds a self-contained binary
+(`studywise-linux-x64.zip`) and a NuGet package, and attaches both to a
+GitHub Release — but the first release has not run.
+
+Once one exists:
 
 ```bash
 curl -L https://github.com/yellow-house-studio/studywise-cli/releases/latest/download/studywise-linux-x64.zip -o studywise.zip
@@ -14,11 +19,8 @@ unzip studywise.zip
 ./studywise --help
 ```
 
-Or install as a .NET tool:
-
-```bash
-dotnet tool install --global studywise
-```
+Installing as a .NET tool (`dotnet tool install --global studywise`) is not
+available yet: the package is not currently built as a .NET tool package.
 
 ### From Source
 
@@ -37,25 +39,32 @@ Set the `STUDYWISE_API_KEY` environment variable:
 
 ```bash
 export STUDYWISE_API_KEY=sk_live_xxx
-studywise words list
+studywise doctor --check auth-verify
 ```
 
-### For Humans (Future)
+`studywise doctor --check auth-verify` confirms that a key is configured and
+that the API accepts it, and reports which user the key authenticates as. The
+key can also be set in `~/.config/studywise/config.json` — see
+[docs/auth.md](docs/auth.md).
 
-Interactive login via Auth0 device flow:
+### For Humans (Not Yet Implemented)
 
-```bash
-studywise auth login
-```
+Interactive login via Auth0 device flow (`studywise auth login`) is planned
+but does not exist in any build today.
 
 ## Commands
 
-- `studywise words` - Manage word lists
-- `studywise progress` - View study progress  
-- `studywise practice` - Practice with flashcards
-- `studywise auth` - Authentication commands
+The CLI currently ships one command:
 
-Run `studywise --help` for all available commands.
+- `studywise doctor` — run the diagnostic checks (`config`, `api-key`,
+  `connection`, `auth-verify`)
+
+Planned, and tracked in the [issue tracker](https://github.com/yellow-house-studio/studywise-cli/issues):
+
+- `studywise auth verify` — confirm the configured API key authenticates
+- `studywise education-level list` — list education levels for a country
+
+Run `studywise --help` for the commands available in your build.
 
 ## Development
 
@@ -75,6 +84,9 @@ dotnet build Studywise.Cli.sln
 ```bash
 dotnet test Studywise.Cli.sln
 ```
+
+The local gate that CI mirrors is `./scripts/verify.sh --scope=fast` — see
+[docs/testing/testing-strategy.md](docs/testing/testing-strategy.md).
 
 ## API Models
 
