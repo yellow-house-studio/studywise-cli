@@ -147,10 +147,12 @@ The corrections below are the ones that changed the work's direction.
   output before pasting it.
 - **Applies when:** Reading `~/.nuget/NuGet/NuGet.Config`, `.env` files,
   `~/.config/**` files, keychain exports, or any file that holds a token.
-- **Note:** This repeats a lesson already captured in
-  [studywise-api's `issue-627-stripe-key-bootstrap` retrospective](https://github.com/yellow-house-studio/studywise-api/blob/master/docs/retrospective/issue-627-stripe-key-bootstrap.md).
-  It was repeated because this repo had no retrospective index to point at
-  it. That is why `docs/retrospective/` now exists here.
+- **Note:** The same failure mode was already captured in another repo's
+  retrospective for the same class of secret — in a private repo, so the
+  citation is not linkable from this public one. It was repeated because
+  this repo had no retrospective index to point at it. That is why
+  `docs/retrospective/` now exists here, and why this repo keeps its own
+  convention instead of deferring to another repo's.
 
 ## Cross-cutting implications
 
@@ -181,20 +183,27 @@ The corrections below are the ones that changed the work's direction.
 - [x] Filed the API release-path defect, reframed as a plain bug report
       rather than a CLI dependency — studywise-api#909.
 - [x] Set the `NUGET_GITHUB_PACKAGES_TOKEN` repository secret on this repo
-      (2026-10-21) — the PAT's scope is org-wide, but Actions secrets are
-      per-repository.
+      (2026-10-21) — the PAT's scope is org-wide, and Actions secrets are
+      per-repository, so the token has one copy per consuming repo.
 - [x] Added the verification rules to this repo's AGENTS.md, and created
       `docs/retrospective/` with an index, so the lessons are reachable from
       here.
-- [x] **Rotate the GitHub Packages PAT** — filed as issue #57. The value was
-      exposed in tool output during this work and must be treated as
-      compromised. Operator-led: rotate the item in Proton Pass (vault `AI`,
-      item `Github PAT`), then update the copies in
-      `~/.nuget/NuGet/NuGet.Config` and the CI secrets in `studywise-api`
-      (`NUGET_GITHUB_PACKAGES_TOKEN`), `yhs-core-services`
-      (`NUGET_GITHUB_TOKEN`) and `studywise-cli`
-      (`NUGET_GITHUB_PACKAGES_TOKEN`). The token expires 2026-10-30
-      regardless.
+- [x] **Rotate the GitHub Packages PAT** — the procedure is
+      `docs/devenv/github-packages-pat-rotation.md`. The value was exposed in
+      tool output during this work and must be treated as compromised.
+
+      The radius is every copy of the token, not the three repos this
+      retrospective happened to name: six repos consume the org feed and
+      therefore need a copy (only three hold a repo-level Actions secret),
+      org-level Actions secrets cannot be enumerated without org admin, and
+      every machine that can reach Proton Pass vault `AI` → item
+      `Github PAT` is a copy too. The token expires 2026-10-30 regardless.
+
+      It was tracked as issue #57 under the convention in force at the time,
+      which required every operational action to be a tracked issue; the
+      runbook replaces that entry — the work changes no code in this repo,
+      and the repos and machines outside it never learned about it from a
+      tracker.
 
 ## Related
 

@@ -203,6 +203,13 @@ lesson.
   consume.** Their internal build, release or deployment machinery is theirs
   to fix; say so once and accurately, without inflating it into our
   dependency.
+- **An operator action outside this repo is a runbook entry, not a tracker
+  issue.** Before filing an issue for work outside the repo — rotating a
+  token, landing an Azure setting — ask whether this repo's code changes. If
+  it does not, the recipe goes in the retrospective and the repo's runbook.
+  File an issue only when the action has a deadline, recurs, spans repos or
+  owners, or must be handed off — and then in the repo that owns the
+  affected surface. See `docs/retrospective/README.md` § "Scope gate".
 - **Delete a remote branch only after its PR is merged.** Deleting the head
   branch of an open PR closes it automatically. Check the PR's state before
   cleaning up, not after.
