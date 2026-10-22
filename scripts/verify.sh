@@ -135,6 +135,7 @@ gitleaks=skipped
 actionlint=skipped
 cspell=skipped
 security=skipped
+pack=skipped
 unit_tests=skipped
 integration_tests=skipped
 coverage_gate=skipped"
@@ -171,6 +172,7 @@ RUN_GITLEAKS=1
 RUN_ACTIONLINT=1
 RUN_CSPELL=1
 RUN_SECURITY=1
+RUN_PACK=1
 RUN_TESTS=1
 RUN_COVERAGE_GATE=1
 RUN_AUTO_RAISE=1
@@ -214,6 +216,8 @@ Phase toggles (each skip flag is independent):
                        \`npx cspell@10\` — no separate install; cspell is
                        downloaded on first invocation and cached.
   --skip-security      Skip 'dotnet list package --vulnerable'.
+  --skip-pack          Skip the 'dotnet pack' check that the release
+                       pipeline's NuGet package can be produced.
   --skip-coverage-gate Run tests with coverage but don't enforce the baseline gate.
   --no-auto-raise      Don't update .github/coverage-baseline.json at end of run.
   --post-comment       Post a sticky PR comment with the run results on success.
@@ -259,6 +263,7 @@ while [[ $# -gt 0 ]]; do
         --skip-actionlint)  RUN_ACTIONLINT=0 ;;
         --skip-cspell)      RUN_CSPELL=0 ;;
         --skip-security)    RUN_SECURITY=0 ;;
+        --skip-pack)        RUN_PACK=0 ;;
         --skip-coverage-gate) RUN_COVERAGE_GATE=0 ;;
         --no-auto-raise)    RUN_AUTO_RAISE=0 ;;
         --post-comment)     RUN_PR_COMMENT=1; PR_COMMENT_ALWAYS=0 ;;
@@ -584,6 +589,40 @@ if [[ "$RUN_SECURITY" == "1" ]]; then
     else
         echo "[verify] ✅ Security scan: no vulnerable packages"
         set_phase_status security passed
+    fi
+fi
+
+# ─── Phase 5e: Package check ─────────────────────────────────────────────
+# The release workflow runs `dotnet pack` on every release. That step had
+# been failing every day since 2026-10-17 with NU5104 — a stable package
+# version may not depend on a prerelease — so the release pipeline produced
+# no release at all. Nothing in the fast gate exercised `dotnet pack`, so a
+# broken package went unnoticed for a week.
+#
+# This phase packs the CLI the same way the release workflow does and fails
+# if the package cannot be produced. It is the gate that would have caught
+# it on day one.
+if [[ "$RUN_PACK" == "1" ]]; then
+    echo "[verify] === Phase 5e: Package check ==="
+    PACK_DIR="$RESULTS_DIR/Package"
+    mkdir -p "$PACK_DIR"
+    begin_stage "Package check (dotnet pack)"
+    PACK_OUTPUT=$("$DOTNET" pack src/Studywise.Cli/Studywise.Cli.csproj -c Release --no-build -o "$PACK_DIR" 2>&1 | tee "$PACK_DIR/console.log" || true)
+    end_stage "Package check"
+    if echo "$PACK_OUTPUT" | grep -qE "error [A-Z]+[0-9]+:"; then
+        echo "[verify] ❌ The NuGet package could not be produced." >&2
+        echo "    The release workflow packs this package on every release, so" >&2
+        echo "    a package that cannot be packed means no artifact ships." >&2
+        echo "$PACK_OUTPUT" | grep -E "error [A-Z]+[0-9]+:" >&2
+        set_phase_status pack failed
+        if [[ "$FAIL_FAST" == "1" ]]; then
+            exit 1
+        else
+            OVERALL_RC=1
+        fi
+    else
+        echo "[verify] ✅ Package check: the NuGet package can be produced"
+        set_phase_status pack passed
     fi
 fi
 
