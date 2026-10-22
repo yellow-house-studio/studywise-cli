@@ -68,7 +68,7 @@
 #                    the coverage surface end-to-end.
 #
 # Prerequisites:
-#   - .NET SDK matching the global.json pin.
+#   - .NET SDK matching the project's target framework (net10.0).
 #   - Optional: gitleaks (secret scan), actionlint (workflow lint).
 #     Both are auto-installed by scripts/setup-env.sh.
 #   - Optional: reportgenerator. Install via scripts/setup-env.sh
