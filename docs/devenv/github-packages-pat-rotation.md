@@ -142,9 +142,12 @@ NuGet expands.
 # 3a. Write the env file (mode 600). The value comes from Proton Pass;
 #     it must not be echoed, and it must not be typed into a shell that
 #     records history.
+#     The Proton Pass item is a `custom` item: its fields live in
+#     content.extra_fields[] and are matched by `name` — PAT, Expires,
+#     Username — with the value under content.Hidden.
 install -m 600 /dev/null "$HOME/.config/yhs-nuget.env.tmp"
 pass-cli item view --vault-name AI --item-title "Github PAT" --output json \
-  | python3 -c 'import json,sys; d=json.load(sys.stdin); print("export NUGET_GITHUB_TOKEN=\"%s\"" % next(f["content"]["Hidden"] for f in d["item"]["content"]["extra_fields"] if f["field_name"]=="PAT"))' \
+  | python3 -c 'import json,sys; d=json.load(sys.stdin); v=next(f["content"]["Hidden"] for f in d["item"]["content"]["extra_fields"] if f["name"]=="PAT"); print("export NUGET_GITHUB_TOKEN=\"%s\"" % v)' \
   > "$HOME/.config/yhs-nuget.env.tmp"
 mv "$HOME/.config/yhs-nuget.env.tmp" "$HOME/.config/yhs-nuget.env"
 chmod 600 "$HOME/.config/yhs-nuget.env"
@@ -178,7 +181,7 @@ not pass through a variable on the command line, and it must not be printed.
 ```bash
 set_pat() {  # $1 = repo, $2 = secret name
   pass-cli item view --vault-name AI --item-title "Github PAT" --output json \
-    | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(f["content"]["Hidden"] for f in d["item"]["content"]["extra_fields"] if f["field_name"]=="PAT"), end="")' \
+    | python3 -c 'import json,sys; d=json.load(sys.stdin); print(next(f["content"]["Hidden"] for f in d["item"]["content"]["extra_fields"] if f["name"]=="PAT"), end="")' \
     | gh secret set "$2" --repo "$1"
 }
 
