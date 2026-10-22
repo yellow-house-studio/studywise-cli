@@ -199,6 +199,9 @@ lesson.
   consume.** Their internal build, release or deployment machinery is theirs
   to fix; say so once and accurately, without inflating it into our
   dependency.
+- **Delete a remote branch only after its PR is merged.** Deleting the head
+  branch of an open PR closes it automatically. Check the PR's state before
+  cleaning up, not after.
 
 ## Task Management
 
