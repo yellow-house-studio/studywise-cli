@@ -1,10 +1,10 @@
 {
   "assemblies": {
     "studywise": {
-      "covered": 237,
-      "valid": 353
+      "covered": 326,
+      "valid": 464
     }
   },
-  "commit": "29373b4",
-  "lastUpdated": "2026-10-21"
+  "commit": "444a558",
+  "lastUpdated": "2026-10-22"
 }

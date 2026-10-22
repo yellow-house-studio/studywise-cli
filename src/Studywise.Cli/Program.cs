@@ -3,6 +3,7 @@ using System.CommandLine.Builder;
 using System.CommandLine.Parsing;
 using Microsoft.Extensions.DependencyInjection;
 using Studywise.Cli.Commands;
+using Studywise.Cli.Commands.Auth;
 using Studywise.Cli.Commands.Doctor;
 using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
@@ -48,6 +49,9 @@ services.AddSingleton<IDiagnosticRunner>(sp => sp.GetRequiredService<DiagnosticR
 
 services.AddSingleton<Command, DoctorCommand>();
 services.AddTransient<ICommandHandler<DoctorCommandOptions>, DoctorCommandHandler>();
+
+services.AddSingleton<Command, AuthCommand>();
+services.AddTransient<ICommandHandler<AuthVerifyCommandOptions>, AuthVerifyCommandHandler>();
 
 var serviceProvider = services.BuildServiceProvider();
 

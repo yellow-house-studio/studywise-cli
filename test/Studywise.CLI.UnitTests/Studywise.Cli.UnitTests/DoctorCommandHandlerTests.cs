@@ -1,5 +1,4 @@
 using System.CommandLine;
-using System.CommandLine.IO;
 using System.Net.Http;
 using System.Text.Json;
 using Studywise.Cli.Commands.Doctor;
@@ -192,60 +191,4 @@ public class DoctorCommandHandlerTests
         }
     }
 
-    private sealed class TestConsole : IConsole
-    {
-        public List<string> Lines { get; } = [];
-        public StringWriter ErrorWriter { get; } = new StringWriter();
-        public string ErrorOutput => ErrorWriter.ToString();
-
-        public IStandardStreamWriter Out => new TestStreamWriter(Lines);
-        public IStandardStreamWriter Error => new StringWriterStreamWriter(ErrorWriter);
-        public bool IsOutputRedirected => false;
-        public bool IsErrorRedirected => false;
-        public bool IsInputRedirected => false;
-    }
-
-    private sealed class StringWriterStreamWriter : IStandardStreamWriter
-    {
-        private readonly TextWriter _writer;
-
-        public StringWriterStreamWriter(TextWriter writer) => _writer = writer;
-
-        public void Write(string? value) => _writer.Write(value ?? string.Empty);
-        public void WriteLine(string? value) => _writer.WriteLine(value ?? string.Empty);
-        public void Write(char[] buffer, int index, int count) => _writer.Write(buffer, index, count);
-    }
-
-    private sealed class TestStreamWriter : IStandardStreamWriter
-    {
-        private readonly Action<string>? _onWrite;
-        private readonly List<string>? _lines;
-
-        public TestStreamWriter(List<string> lines) => _lines = lines;
-        public TestStreamWriter(Action<string> onWrite) => _onWrite = onWrite;
-
-        public void Write(string? value)
-        {
-            if (string.IsNullOrEmpty(value)) return;
-            _lines?.Add(value);
-            _onWrite?.Invoke(value);
-        }
-
-        public void WriteLine(string? value)
-        {
-            var line = value ?? string.Empty;
-            _lines?.Add(line);
-            _onWrite?.Invoke(line + Environment.NewLine);
-        }
-
-        public void Write(char[] buffer, int index, int count)
-        {
-            if (count > 0)
-            {
-                var s = new string(buffer, index, count);
-                _lines?.Add(s);
-                _onWrite?.Invoke(s);
-            }
-        }
-    }
 }
