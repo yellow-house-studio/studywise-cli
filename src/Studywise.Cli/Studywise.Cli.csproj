@@ -9,6 +9,19 @@
     <RootNamespace>Studywise.Cli</RootNamespace>
     <Description>Studywise client CLI for agents and end users</Description>
     <Version>0.1.0</Version>
+    <!--
+      NU5104: "A stable release of a package should not have a prerelease
+      dependency." The CLI depends on System.CommandLine 2.0.0-beta4, and the
+      release workflow packs a stable-shaped version (v0.0.x -> 0.0.x), so
+      `dotnet pack` failed with NU5104 and the release pipeline had been
+      failing every day since 2026-10-17 without producing a release.
+
+      Suppressed rather than worked around, because the real fix is to move to
+      System.CommandLine 2.0.0 GA, which is a breaking API change
+      (CommandLineBuilder and IConsole are gone) and therefore its own piece of
+      work. Remove this NoWarn when that lands.
+    -->
+    <NoWarn>$(NoWarn);NU5104</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
