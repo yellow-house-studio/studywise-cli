@@ -7,6 +7,8 @@ using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Diagnostics.Formatting;
 using Studywise.Cli.Formatting;
 using Studywise.Cli.Http;
+using Studywise.Contracts.Http;
+using Studywise.Contracts.Http.Auth;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -147,6 +149,8 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
         }
 
         var services = new ServiceCollection();
+        services.AddStudywiseClient(apiBaseUrl, apiKey);
+        services.AddHttpClient<AuthClient>().UseStudywiseDefaults(new ApplicationConfig { ApiKey = apiKey ?? string.Empty });
         services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
             {
@@ -167,7 +171,7 @@ public class DoctorCommandIntegrationTests : BaseIntegrationTest
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(),
                 new ConnectionDiagnosticCheck(httpClientFactory),
-                new AuthVerifyDiagnosticCheck(new HttpClientStudywiseTransport(httpClientFactory), new ApplicationConfig { ApiKey = apiKey ?? string.Empty })
+                new AuthVerifyDiagnosticCheck(serviceProvider.GetRequiredService<AuthClient>(), new ApplicationConfig { ApiKey = apiKey ?? string.Empty })
             };
 
             return await new DiagnosticRunner().RunAsync(checks);

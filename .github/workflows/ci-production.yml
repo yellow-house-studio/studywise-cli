@@ -176,6 +176,26 @@ jobs:
       - name: Install verify.sh prerequisites
         run: ./scripts/setup-env.sh
 
+      - name: Add GitHub Packages NuGet source
+        # The `github` source is the org-scoped private feed that serves
+        # YellowHouseStudio.Studywise.Sdk. The repo's nuget.config
+        # declares the source and the package source mapping, but not
+        # the credentials — those are injected here from the
+        # NUGET_GITHUB_PACKAGES_TOKEN repository secret.
+        #
+        # The `remove` first is load-bearing: `add` fails when a source
+        # with that name already exists. Re-adding with --configfile
+        # preserves the package source mapping.
+        run: |
+          dotnet nuget remove source github --configfile nuget.config || true
+          dotnet nuget add source \
+            "https://nuget.pkg.github.com/yellow-house-studio/index.json" \
+            --name github \
+            --username "${{ github.repository_owner }}" \
+            --password "${{ secrets.NUGET_GITHUB_PACKAGES_TOKEN }}" \
+            --store-password-in-clear-text \
+            --configfile nuget.config
+
       - name: Run verify.sh (full)
         # The integration tests build a WireMock server in-process and
         # never dial the real Studywise API, so no STUDYWISE_API_KEY

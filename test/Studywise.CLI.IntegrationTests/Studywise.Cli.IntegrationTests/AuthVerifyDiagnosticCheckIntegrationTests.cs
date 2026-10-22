@@ -5,6 +5,8 @@ using Studywise.Cli.Configuration;
 using Studywise.Cli.Diagnostics;
 using Studywise.Cli.Diagnostics.Checks;
 using Studywise.Cli.Http;
+using Studywise.Contracts.Http;
+using Studywise.Contracts.Http.Auth;
 using WireMock.RequestBuilders;
 using WireMock.ResponseBuilders;
 using WireMock.Server;
@@ -31,6 +33,29 @@ public class AuthVerifyDiagnosticCheckIntegrationTests : BaseIntegrationTest
         result.Status.Should().Be(DiagnosticStatus.Pass);
         result.Message.Should().Contain("users/abc-123");
         result.Message.Should().Contain("ApiKey");
+    }
+
+    [Test]
+    public async Task AuthVerify_SendsTheApiKeyHeader()
+    {
+        using var server = WireMockServer.Start();
+        // The stub only matches when the SDK attached the API key header. A
+        // missing header produces a 404, which the check reports as a failure.
+        server
+            .Given(Request.Create()
+                .WithPath("/api/v1/auth/verify")
+                .UsingGet()
+                .WithHeader("X-Studywise-Api-Key", "test-key"))
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("{\"userId\":\"users/abc-123\",\"authMethod\":\"ApiKey\"}"));
+
+        var check = BuildCheck(server.Url!, "test-key");
+        var result = await check.RunAsync();
+
+        result.Status.Should().Be(DiagnosticStatus.Pass);
+        result.Message.Should().Contain("users/abc-123");
     }
 
     [Test]
@@ -64,6 +89,31 @@ public class AuthVerifyDiagnosticCheckIntegrationTests : BaseIntegrationTest
 
         result.Status.Should().Be(DiagnosticStatus.Fail);
         result.Message.Should().Contain("503");
+    }
+
+    [Test]
+    public async Task AuthVerify_DoesNotFollowRedirects_SoTheApiKeyIsNotForwarded()
+    {
+        using var server = WireMockServer.Start();
+        server
+            .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
+            .RespondWith(Response.Create().WithStatusCode(302).WithHeader("Location", "/redirect-target"));
+        server
+            .Given(Request.Create().WithPath("/redirect-target").UsingGet())
+            .RespondWith(Response.Create()
+                .WithStatusCode(200)
+                .WithHeader("Content-Type", "application/json")
+                .WithBody("{\"userId\":\"users/redirected\",\"authMethod\":\"ApiKey\"}"));
+
+        var check = BuildCheck(server.Url!, "test-key");
+        var result = await check.RunAsync();
+
+        result.Status.Should().Be(DiagnosticStatus.Fail);
+        result.Message.Should().Contain("server returned 302");
+        server.LogEntries
+            .Where(entry => entry.RequestMessage is not null)
+            .Select(entry => entry.RequestMessage!.Path)
+            .Should().NotContain("/redirect-target");
     }
 
     [Test]
@@ -102,6 +152,8 @@ public class AuthVerifyDiagnosticCheckIntegrationTests : BaseIntegrationTest
         try
         {
             var services = new ServiceCollection();
+            services.AddStudywiseClient(server.Url!, "test-key");
+            services.AddHttpClient<AuthClient>().UseStudywiseDefaults(new ApplicationConfig { ApiKey = "test-key" });
             services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(server.Url!))
                 .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
                 {
@@ -115,7 +167,7 @@ public class AuthVerifyDiagnosticCheckIntegrationTests : BaseIntegrationTest
                 new ConfigDiagnosticCheck(),
                 new ApiKeyDiagnosticCheck(),
                 new ConnectionDiagnosticCheck(factory),
-                new AuthVerifyDiagnosticCheck(new HttpClientStudywiseTransport(factory), new ApplicationConfig { ApiKey = "test-key" })
+                new AuthVerifyDiagnosticCheck(sp.GetRequiredService<AuthClient>(), new ApplicationConfig { ApiKey = "test-key" })
             };
 
             var report = await new DiagnosticRunner().RunAsync(checks);
@@ -141,15 +193,11 @@ public class AuthVerifyDiagnosticCheckIntegrationTests : BaseIntegrationTest
     private static AuthVerifyDiagnosticCheck BuildCheck(string apiBaseUrl, string? apiKey)
     {
         var services = new ServiceCollection();
-        services.AddHttpClient("Studywise", client => client.BaseAddress = new Uri(apiBaseUrl))
-            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
-            {
-                AllowAutoRedirect = false
-            });
+        services.AddStudywiseClient(apiBaseUrl, apiKey);
+        services.AddHttpClient<AuthClient>().UseStudywiseDefaults(new ApplicationConfig { ApiKey = apiKey ?? string.Empty });
         var sp = services.BuildServiceProvider();
-        var factory = sp.GetRequiredService<IHttpClientFactory>();
         return new AuthVerifyDiagnosticCheck(
-            new HttpClientStudywiseTransport(factory),
+            sp.GetRequiredService<AuthClient>(),
             new ApplicationConfig { ApiKey = apiKey ?? string.Empty });
     }
 }

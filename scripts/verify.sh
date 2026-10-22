@@ -75,10 +75,19 @@
 #     reportgenerator.
 #
 # IMPORTANT — NuGet auth pattern:
-#   The CLI repo has no private NuGet feeds — all dependencies are on
-#   the public NuGet gallery and the `Studywise.*` packages on the
-#   YHS public GitHub Packages feed. `dotnet restore` uses the
-#   default config hierarchy; no `--configfile` override needed.
+#   The CLI has ONE private feed: the YHS GitHub Packages feed, which
+#   serves `YellowHouseStudio.Studywise.Sdk` (the typed API client). It
+#   is org-scoped and private, so restore needs a PAT with
+#   `read:packages`. Everything else is on the public NuGet gallery.
+#
+#   `dotnet restore` uses the default config hierarchy:
+#     - locally  -> the repo's nuget.config declares the sources and the
+#                   package source mapping; the credentials merge in from
+#                   the machine-level ~/.nuget/NuGet/NuGet.Config.
+#     - in CI     -> the workflow registers the `github` source with
+#                   credentials before restore, using the
+#                   NUGET_GITHUB_PACKAGES_TOKEN repository secret.
+#   See docs/architecture/sdk-consumption.md.
 #
 # Usage:
 #   ./scripts/verify.sh                          # --scope=full, fail-fast
@@ -394,16 +403,18 @@ RESTORE_LOG="$(mktemp -t verify-restore.XXXXXX.log)"
 phase_restore() {
     if ! "$DOTNET" restore "$SLN" "${DOTNET_RESTORE_FLAGS[@]}" >"$RESTORE_LOG" 2>&1; then
         if grep -q "401 (Unauthorized)" "$RESTORE_LOG"; then
-            # The CLI only consumes the YHS public GitHub Packages
-            # feed, which doesn't need auth for the public Studywise.*
-            # packages. A 401 here is unusual — surface it with a
-            # generic NuGet-credential pointer.
+            # The `github` source is the org-scoped private feed that
+            # serves YellowHouseStudio.Studywise.Sdk. A 401 here means
+            # the token is missing, expired, or lacks `read:packages`.
             echo "[verify] ❌ Restore failed with NU1301: 401 Unauthorized." >&2
-            echo "    A NuGet source rejected the credentials in" >&2
-            echo "    ~/.nuget/NuGet/NuGet.Config. This is unusual for the CLI" >&2
-            echo "    repo (only public NuGet feeds are configured). Check" >&2
-            echo "    that no user-level private feed is configured with a" >&2
-            echo "    stale PAT." >&2
+            echo "    The YHS GitHub Packages feed rejected the credentials." >&2
+            echo "    That feed serves YellowHouseStudio.Studywise.Sdk and is" >&2
+            echo "    private (org-scoped), so restore needs a PAT with" >&2
+            echo "    read:packages. Locally the credentials come from" >&2
+            echo "    ~/.nuget/NuGet/NuGet.Config; in CI the workflow" >&2
+            echo "    registers the source from the" >&2
+            echo "    NUGET_GITHUB_PACKAGES_TOKEN repository secret. Check" >&2
+            echo "    that the PAT is present and not expired." >&2
         else
             echo "[verify] ❌ Restore failed — see $RESTORE_LOG" >&2
         fi

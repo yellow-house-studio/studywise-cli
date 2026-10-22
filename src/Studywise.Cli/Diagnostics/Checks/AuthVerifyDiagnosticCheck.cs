@@ -1,21 +1,24 @@
-using System.Net.Http;
-using System.Text.Json;
+using System.Net;
 using Studywise.Cli.Configuration;
-using Studywise.Cli.Http;
+using Studywise.Contracts.Http.Auth;
 
 namespace Studywise.Cli.Diagnostics.Checks;
 
 /// <summary>
-/// Diagnostic check that probes <c>GET /api/v1/auth/verify</c> on the Studywise API and
-/// reports whether the configured API key authenticates successfully.
+/// Diagnostic check that verifies the configured API key against the Studywise API and
+/// reports whether it authenticates successfully.
+/// <para>
+/// Backed by the SDK's <see cref="AuthClient"/>, so the endpoint and the
+/// <c>X-Studywise-Api-Key</c> header are the SDK's concern rather than the CLI's.
+/// </para>
 /// <para>
 /// Returns <see cref="DiagnosticStatus.Warn"/> (SKIP) when no API key is configured.
 /// </para>
 /// </summary>
-/// <param name="transport">Transport used to send the request.</param>
+/// <param name="authClient">SDK client used to verify the configured credentials.</param>
 /// <param name="config">Resolved CLI configuration (the API key is read from here).</param>
 public sealed class AuthVerifyDiagnosticCheck(
-    IStudywiseTransport transport,
+    AuthClient authClient,
     ApplicationConfig config) : IDiagnosticCheck
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(5);
@@ -38,36 +41,21 @@ public sealed class AuthVerifyDiagnosticCheck(
                 "Auth verify: SKIP — no API key configured");
         }
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, StudywiseDefaults.AuthVerifyPath);
+        // The SDK's client carries a 30 second HttpClient timeout. The doctor check
+        // wants a tighter bound, so it applies its own via a linked token rather
+        // than reconfiguring the SDK's client.
+        using var timeoutSource = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutSource.CancelAfter(RequestTimeout);
 
         try
         {
-            using var response = await transport.SendAsync(request, cancellationToken);
-
-            if (response.IsSuccessStatusCode)
-            {
-                var body = await response.Content.ReadAsStringAsync(cancellationToken);
-                var (userId, authMethod) = ParseAuthVerification(body);
-                var userIdDisplay = string.IsNullOrEmpty(userId) ? "unknown" : userId;
-                var authMethodDisplay = string.IsNullOrEmpty(authMethod) ? "unknown" : authMethod;
-                return new DiagnosticCheckResult(
-                    Name,
-                    DiagnosticStatus.Pass,
-                    $"Auth verify: OK — connected as {userIdDisplay} ({authMethodDisplay})");
-            }
-
-            if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
-            {
-                return new DiagnosticCheckResult(
-                    Name,
-                    DiagnosticStatus.Fail,
-                    "Auth verify: FAIL — invalid or revoked API key");
-            }
-
+            var verification = await authClient.VerifyAsync(timeoutSource.Token);
+            var userIdDisplay = string.IsNullOrEmpty(verification.UserId) ? "unknown" : verification.UserId;
+            var authMethodDisplay = string.IsNullOrEmpty(verification.AuthMethod) ? "unknown" : verification.AuthMethod;
             return new DiagnosticCheckResult(
                 Name,
-                DiagnosticStatus.Fail,
-                $"Auth verify: FAIL — server returned {(int)response.StatusCode}");
+                DiagnosticStatus.Pass,
+                $"Auth verify: OK — connected as {userIdDisplay} ({authMethodDisplay})");
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -75,66 +63,44 @@ public sealed class AuthVerifyDiagnosticCheck(
             // catches translate transport-level timeouts into a FAIL result.
             throw;
         }
-        catch (TaskCanceledException)
+        catch (OperationCanceledException)
         {
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Auth verify: FAIL — timeout after {(int)RequestTimeout.TotalSeconds}s reaching {StudywiseDefaults.AuthVerifyPath}");
+                $"Auth verify: FAIL — timeout after {(int)RequestTimeout.TotalSeconds}s");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            return new DiagnosticCheckResult(
+                Name,
+                DiagnosticStatus.Fail,
+                "Auth verify: FAIL — invalid or revoked API key");
+        }
+        catch (HttpRequestException ex) when (ex.StatusCode is { } status)
+        {
+            return new DiagnosticCheckResult(
+                Name,
+                DiagnosticStatus.Fail,
+                $"Auth verify: FAIL — server returned {(int)status}");
         }
         catch (HttpRequestException ex)
         {
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Auth verify: FAIL — could not reach {StudywiseDefaults.AuthVerifyPath} ({ex.GetType().Name})");
+                $"Auth verify: FAIL — could not reach the API ({ex.GetType().Name})");
         }
         catch (Exception ex)
         {
+            // The SDK surfaces a malformed body as JsonException, an unexpected
+            // content type as NotSupportedException, and a null body as
+            // InvalidOperationException. A diagnostic check must not throw, so
+            // anything unrecognised still degrades to a FAIL result.
             return new DiagnosticCheckResult(
                 Name,
                 DiagnosticStatus.Fail,
-                $"Auth verify: FAIL — could not reach {StudywiseDefaults.AuthVerifyPath} ({ex.GetType().Name})");
-        }
-    }
-
-    private static (string UserId, string AuthMethod) ParseAuthVerification(string body)
-    {
-        if (string.IsNullOrWhiteSpace(body))
-        {
-            return (string.Empty, string.Empty);
-        }
-
-        try
-        {
-            using var document = JsonDocument.Parse(body);
-            if (document.RootElement.ValueKind != JsonValueKind.Object)
-            {
-                return (string.Empty, string.Empty);
-            }
-
-            string userId = string.Empty;
-            string authMethod = string.Empty;
-
-            if (document.RootElement.TryGetProperty("userId", out var userIdElement) &&
-                userIdElement.ValueKind == JsonValueKind.String)
-            {
-                userId = userIdElement.GetString() ?? string.Empty;
-            }
-
-            if (document.RootElement.TryGetProperty("authMethod", out var authMethodElement) &&
-                authMethodElement.ValueKind == JsonValueKind.String)
-            {
-                authMethod = authMethodElement.GetString() ?? string.Empty;
-            }
-
-            return (userId, authMethod);
-        }
-        catch (JsonException)
-        {
-            // Malformed body still surfaces as a successful HTTP response, so fall through
-            // to the unknown userId/authMethod display rather than failing the diagnostic.
-            return (string.Empty, string.Empty);
+                $"Auth verify: FAIL — the request failed ({ex.GetType().Name})");
         }
     }
 }

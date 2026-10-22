@@ -334,7 +334,7 @@ Layer order (low → high):
 
 ```
 HTTP wire
-  ↑ HttpClient (named "Studywise")
+  ↑ HttpClient (SDK-named, e.g. "AuthClient")
   ↑ ApiKeyAuthenticationHandler  (SDK ships this; sets X-Studywise-Api-Key)
   ↑ HttpTypedClient               (SDK; throws HttpRequestException on non-success)
   ↑ <Resource>Client              (SDK; e.g. BooksClient.CreateAsync)
@@ -342,7 +342,7 @@ HTTP wire
 ```
 
 The CLI does **not** wrap the SDK in its own "typed API client"
-interface. Every CLI command depends on `IStudywiseClient` (the SDK's
+interface. Every CLI command depends on `StudywiseClient` (the SDK's
 root) or the specific subclient; the handler resolves from DI.
 
 ### Why
