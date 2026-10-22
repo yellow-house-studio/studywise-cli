@@ -164,12 +164,16 @@ the analysis right upfront.
 ## CI troubleshooting
 
 For any CI investigation (PR not running, CI red, `BLOCKED` after green,
-or pre-merge deploy verification), load
-`.opencode/skills/ci-troubleshooting/SKILL.md`.
+or pre-merge deploy verification), load the `ci-troubleshooting` skill.
+
+> **This repo has no `.opencode/` directory.** The skill is repo-local in
+> `studywise-api` — `.opencode/skills/ci-troubleshooting/SKILL.md` in that
+> checkout. Read it from there.
 
 When an issue body quotes a timestamped snapshot of live state (Azure
 config, env vars, infra inventory), re-run the snapshot query just
-before acting on it — see `.opencode/skills/re-capture-issue-snapshots/SKILL.md`.
+before acting on it — the `re-capture-issue-snapshots` skill, repo-local
+in `studywise-api` at `.opencode/skills/re-capture-issue-snapshots/SKILL.md`.
 
 ## Self-Improvement Loop
 
