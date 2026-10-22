@@ -9,11 +9,37 @@ namespace Studywise.CLI.UnitTests;
 [Category("Unit")]
 public class ConnectionDiagnosticCheckBoundaryTests
 {
+    // The path the Studywise API actually maps for liveness. Spelled out as a
+    // literal rather than taken from StudywiseDefaults so that a wrong
+    // constant fails these tests instead of being confirmed by them.
+    private const string ApiLivenessPath = "/health/live";
+
     private static IHttpClientFactory CreateMockFactory(HttpClient httpClient)
     {
         var mockFactory = new Mock<IHttpClientFactory>();
         mockFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(httpClient);
         return mockFactory.Object;
+    }
+
+    [Test]
+    public async Task RunAsync_RequestsThePathTheApiMaps()
+    {
+        HttpRequestMessage? captured = null;
+        using var httpClient = new HttpClient(new StubHttpMessageHandler(request =>
+        {
+            captured = request;
+            return new HttpResponseMessage(HttpStatusCode.OK);
+        }))
+        {
+            BaseAddress = new Uri("https://api.studywise.io")
+        };
+        var factory = CreateMockFactory(httpClient);
+        var check = new ConnectionDiagnosticCheck(factory);
+
+        await check.RunAsync();
+
+        captured.Should().NotBeNull();
+        captured!.RequestUri.Should().Be(new Uri($"https://api.studywise.io{ApiLivenessPath}"));
     }
 
     [Test]
@@ -48,7 +74,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         result.Name.Should().Be("connection");
         result.Status.Should().Be(DiagnosticStatus.Fail);
-        result.Message.Should().Contain($"/health returned {expectedCode}");
+        result.Message.Should().Contain($"{ApiLivenessPath} returned {expectedCode}");
     }
 
     [Test]
@@ -82,7 +108,7 @@ public class ConnectionDiagnosticCheckBoundaryTests
 
         result.Name.Should().Be("connection");
         result.Status.Should().Be(DiagnosticStatus.Fail);
-        result.Message.Should().Contain("could not reach /health");
+        result.Message.Should().Contain($"could not reach {ApiLivenessPath}");
         result.Message.Should().Contain("HttpRequestException");
     }
 

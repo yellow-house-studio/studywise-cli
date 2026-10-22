@@ -154,4 +154,11 @@ public static class StudywiseDefaults
 
     /// <summary>User-Agent header sent on every outbound request.</summary>
     public const string UserAgent = "Studywise-CLI/1.0";
+
+    /// <summary>
+    /// Path of the API's liveness endpoint. The API maps <c>/health/live</c> and
+    /// <c>/health/ready</c> — there is no bare <c>/health</c> route, so a request to
+    /// one 404s.
+    /// </summary>
+    public const string HealthPath = "/health/live";
 }

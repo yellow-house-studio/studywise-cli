@@ -136,7 +136,7 @@ public class AuthVerifyDiagnosticCheckIntegrationTests : BaseIntegrationTest
     {
         using var server = WireMockServer.Start();
         server
-            .Given(Request.Create().WithPath("/health").UsingGet())
+            .Given(Request.Create().WithPath("/health/live").UsingGet())
             .RespondWith(Response.Create().WithStatusCode(200));
         server
             .Given(Request.Create().WithPath("/api/v1/auth/verify").UsingGet())
