@@ -6,12 +6,7 @@ A command-line interface for Studywise, built for agents (Robert, Lilly) and end
 
 ### For Agents (Automated)
 
-No GitHub release has been published yet. The release workflow
-(`.github/workflows/ci-production.yml`) builds a self-contained binary
-(`studywise-linux-x64.zip`) and a NuGet package, and attaches both to a
-GitHub Release — but the first release has not run.
-
-Once one exists:
+Download the latest release from GitHub:
 
 ```bash
 curl -L https://github.com/yellow-house-studio/studywise-cli/releases/latest/download/studywise-linux-x64.zip -o studywise.zip
@@ -19,8 +14,11 @@ unzip studywise.zip
 ./studywise --help
 ```
 
-Installing as a .NET tool (`dotnet tool install --global studywise`) is not
-available yet: the package is not currently built as a .NET tool package.
+Or install as a .NET tool:
+
+```bash
+dotnet tool install --global studywise
+```
 
 ### From Source
 
@@ -39,32 +37,25 @@ Set the `STUDYWISE_API_KEY` environment variable:
 
 ```bash
 export STUDYWISE_API_KEY=sk_live_xxx
-studywise doctor --check auth-verify
+studywise words list
 ```
 
-`studywise doctor --check auth-verify` confirms that a key is configured and
-that the API accepts it, and reports which user the key authenticates as. The
-key can also be set in `~/.config/studywise/config.json` — see
-[docs/auth.md](docs/auth.md).
+### For Humans (Future)
 
-### For Humans (Not Yet Implemented)
+Interactive login via Auth0 device flow:
 
-Interactive login via Auth0 device flow (`studywise auth login`) is planned
-but does not exist in any build today.
+```bash
+studywise auth login
+```
 
 ## Commands
 
-The CLI currently ships one command:
+- `studywise words` - Manage word lists
+- `studywise progress` - View study progress  
+- `studywise practice` - Practice with flashcards
+- `studywise auth` - Authentication commands
 
-- `studywise doctor` — run the diagnostic checks (`config`, `api-key`,
-  `connection`, `auth-verify`)
-
-Planned, and tracked in the [issue tracker](https://github.com/yellow-house-studio/studywise-cli/issues):
-
-- `studywise auth verify` — confirm the configured API key authenticates
-- `studywise education-level list` — list education levels for a country
-
-Run `studywise --help` for the commands available in your build.
+Run `studywise --help` for all available commands.
 
 ## Development
 
@@ -85,26 +76,22 @@ dotnet build Studywise.Cli.sln
 dotnet test Studywise.Cli.sln
 ```
 
-The local gate that CI mirrors is `./scripts/verify.sh --scope=fast` — see
-[docs/testing/testing-strategy.md](docs/testing/testing-strategy.md).
-
 ## API Models
 
-The CLI depends on `YellowHouseStudio.Studywise.Sdk`, the typed HTTP client
-published from the [studywise-api repo](https://github.com/yellow-house-studio/studywise-api).
-It is pinned in `Directory.Packages.props`.
+The CLI uses the `YellowHouseStudio.Studywise.Sdk` NuGet package for type-safe API interactions. This package is published from the [studywise-api repo](https://github.com/yellow-house-studio/studywise-api) and is pinned in `Directory.Packages.props`.
 
-The SDK owns the API wire types, so the CLI declares no API DTOs of its own.
-See [docs/design/cli-design.md](docs/design/cli-design.md) § 7 (SDK adoption)
-and [docs/architecture/sdk-consumption.md](docs/architecture/sdk-consumption.md)
-for how to restore it and how to authenticate against the private feed.
+The SDK owns every wire type and the API-key header. The CLI declares no API DTOs of its own — see [docs/design/cli-design.md](docs/design/cli-design.md) § 7 (SDK adoption) and [docs/architecture/sdk-consumption.md](docs/architecture/sdk-consumption.md) for how to restore it.
 
 ## Project Structure
 
 ```
 studywise-cli/
-├── src/Studywise.Cli/     # Main application (commands, configuration, diagnostics)
-├── test/                  # Test projects (unit + integration)
+├── src/Studywise.Cli/     # Main application
+│   ├── Commands/          # CLI commands
+│   ├── Configuration/     # Configuration options
+│   ├── Diagnostics/       # Diagnostic checks and report formatting
+│   └── Http/              # HTTP client configuration
+├── test/                  # Test projects
 └── .github/workflows/     # CI/CD
 ```
 
