@@ -1206,7 +1206,13 @@ if [[ "$RUN_PR_COMMENT" == "1" ]]; then
     SUMMARY_JSON="$RESULTS_DIR/summary.json"
 
     # Render comment.md from summary.json
-    GH_HANDLE="$(gh api user -q .login 2>/dev/null || echo local-dev)"
+    # GH_HANDLE is the account posting the comment. `gh api user` is not
+    # usable here: under GitHub App auth the token is an installation
+    # token, which is not user-scoped and /user answers 403 — and the
+    # error JSON lands on stdout, so a `|| echo local-dev` fallback never
+    # fires and the handle becomes a 403 blob. The GraphQL viewer field
+    # answers for both token models (PAT/OAuth and App installation).
+    GH_HANDLE="$(gh api graphql -f query='{viewer{login}}' --jq '.data.viewer.login' 2>/dev/null || echo local-dev)"
     PR_URL="$(gh pr view --json url -q '.url' 2>/dev/null || echo "")"
     render_comment_md "$SUMMARY_JSON" "$COMMENT_MD" "$GH_HANDLE" "$FINISHED_AT" "$PR_URL"
 
