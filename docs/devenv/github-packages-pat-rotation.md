@@ -12,7 +12,7 @@ operator chore that changes no code here. The reasoning is in
 
 **Generic version:** the org-wide pattern — why the token lives in one file,
 why the feed needs a token at all, and the full rotation flow — is in
-[`swe-skills-and-docs/docs/github-packages-auth.md`](https://github.com/fam-hulten/swe-skills-and-docs/blob/main/docs/github-packages-auth.md)
+[`swe-skills-and-docs/docs/github-packages-auth.md`](https://github.com/yellow-house-studio/swe-skills-and-docs/blob/main/docs/github-packages-auth.md)
 § 2 and § 6. This runbook is the CLI-specific instance: what the radius of
 this credential actually is, how to enumerate it, and how to prove the
 rotation was complete.
@@ -268,5 +268,5 @@ in the settings page looking live.
   § "Credentials in this repo" — where the credential is consumed.
 - [`docs/retrospective/feature-sdk-adoption.md`](../retrospective/feature-sdk-adoption.md)
   — the exposure and the lessons it produced.
-- [`swe-skills-and-docs/docs/github-packages-auth.md`](https://github.com/fam-hulten/swe-skills-and-docs/blob/main/docs/github-packages-auth.md)
+- [`swe-skills-and-docs/docs/github-packages-auth.md`](https://github.com/yellow-house-studio/swe-skills-and-docs/blob/main/docs/github-packages-auth.md)
   § 6 — the org-wide rotation pattern.
