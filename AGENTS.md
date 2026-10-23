@@ -164,12 +164,16 @@ the analysis right upfront.
 ## CI troubleshooting
 
 For any CI investigation (PR not running, CI red, `BLOCKED` after green,
-or pre-merge deploy verification), load
-`.opencode/skills/ci-troubleshooting/SKILL.md`.
+or pre-merge deploy verification), load the `ci-troubleshooting` skill.
+
+> **This repo has no `.opencode/` directory.** The skill is repo-local in
+> `studywise-api` — `.opencode/skills/ci-troubleshooting/SKILL.md` in that
+> checkout. Read it from there.
 
 When an issue body quotes a timestamped snapshot of live state (Azure
 config, env vars, infra inventory), re-run the snapshot query just
-before acting on it — see `.opencode/skills/re-capture-issue-snapshots/SKILL.md`.
+before acting on it — the `re-capture-issue-snapshots` skill, repo-local
+in `studywise-api` at `.opencode/skills/re-capture-issue-snapshots/SKILL.md`.
 
 ## Self-Improvement Loop
 
@@ -199,6 +203,13 @@ lesson.
   consume.** Their internal build, release or deployment machinery is theirs
   to fix; say so once and accurately, without inflating it into our
   dependency.
+- **An operator action outside this repo is a runbook entry, not a tracker
+  issue.** Before filing an issue for work outside the repo — rotating a
+  token, landing an Azure setting — ask whether this repo's code changes. If
+  it does not, the recipe goes in the retrospective and the repo's runbook.
+  File an issue only when the action has a deadline, recurs, spans repos or
+  owners, or must be handed off — and then in the repo that owns the
+  affected surface. See `docs/retrospective/README.md` § "Scope gate".
 - **Delete a remote branch only after its PR is merged.** Deleting the head
   branch of an open PR closes it automatically. Check the PR's state before
   cleaning up, not after.

@@ -113,14 +113,17 @@ One org-wide PAT serves every consumer.
   `PAT`, `Expires`, `Username`. The value must never land in this repo: not
   in a doc, not in a workflow file, not in a plan, not in a PR comment. Name
   the field and the source instead.
-- **This machine** — `~/.nuget/NuGet/NuGet.Config` already declares the
-  `github` source with its credentials, so local restore needs no setup.
+- **This machine** — the user-level `~/.nuget/NuGet/NuGet.Config` declares the
+  `github` source and carries its credentials, so local restore needs no
+  setup. The credential belongs there as a `%NUGET_GITHUB_TOKEN%` reference
+  to a mode-600 env file, never as a literal `ClearTextPassword` — a literal
+  there is what leaked on 2026-10-21. The rotation procedure, including the
+  env-file form, is in
+  [`docs/devenv/github-packages-pat-rotation.md`](../devenv/github-packages-pat-rotation.md).
 - **CI** — GitHub Actions secrets are per repository; there is no org-level
-  secret. **`studywise-cli` currently has zero repo secrets and zero
-  environments**, so it needs its own copy. Use `NUGET_GITHUB_PACKAGES_TOKEN`
-  for symmetry with `studywise-api`, and register the source before restore
-  using the org-proven pattern from
-  `studywise-api/.github/workflows/deploy-verify.yml`:
+  secret for the feed. This repo holds its own copy as
+  `NUGET_GITHUB_PACKAGES_TOKEN` (set 2026-10-21), and registers the source
+  before restore:
 
   ```yaml
   - name: Add GitHub Packages NuGet source
@@ -133,6 +136,12 @@ One org-wide PAT serves every consumer.
         --password "${{ secrets.NUGET_GITHUB_PACKAGES_TOKEN }}" \
         --store-password-in-clear-text
   ```
+
+  Every repo that consumes the feed holds its own copy of the token —
+  there is no org-level secret for the feed, and those copies are the
+  credential's whole radius. The rotation procedure, and the list of
+  copies as measured on 2026-10-22, are in
+  [`docs/devenv/github-packages-pat-rotation.md`](../devenv/github-packages-pat-rotation.md).
 
 ### The repo-level `nuget.config`
 
@@ -250,6 +259,6 @@ map — see [studywise-cli#48](https://github.com/yellow-house-studio/studywise-
 |---|---|
 | `Directory.Packages.props` (Central Package Management) | repo root — the SDK version is pinned there |
 | `nuget.config` with package source mapping | repo root |
-| `NUGET_GITHUB_PACKAGES_TOKEN` repository secret | this repo, set alongside `studywise-api`'s copy |
+| `NUGET_GITHUB_PACKAGES_TOKEN` repository secret | this repo, set 2026-10-21 — one copy per consuming repo |
 | CI source registration | `ci-fast.yml`, `ci-full.yml`, `ci-production.yml` |
 | `verify.sh` NuGet-auth wording | `scripts/verify.sh` — the header and the `NU1301` / 401 handler now describe the private feed |
